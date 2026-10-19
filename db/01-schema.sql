@@ -13,19 +13,19 @@ CREATE TABLE professors (
 );
 
 CREATE TABLE observees (
-    observees_id INT PRIMARY KEY,
+    observee_id INT PRIMARY KEY,
     observee_rank VARCHAR(50),
     observee_department VARCHAR(100),
     last_sem_observed VARCHAR(50),
     hiring_sem VARCHAR(50),
-    FOREIGN KEY (observees_id) REFERENCES professors(professor_id)
+    FOREIGN KEY (observee_id) REFERENCES professors(professor_id)
 );
 
 CREATE TABLE observee_course_levels (
-    observees_id INT NOT NULL,
+    observee_id INT NOT NULL,
     course_level VARCHAR(50) NOT NULL,
-    PRIMARY KEY (observees_id, course_level),
-    FOREIGN KEY (observees_id) REFERENCES observees(observees_id)
+    PRIMARY KEY (observee_id, course_level),
+    FOREIGN KEY (observee_id) REFERENCES observees(observee_id)
 );
 
 CREATE TABLE observers (
@@ -83,13 +83,13 @@ CREATE TABLE meetings (
 CREATE TABLE reports (
     meeting_id INT PRIMARY KEY,
 
-    content_clarity INT CHECK (content_clarity BETWEEN 1 AND 5),
-    student_engagement INT CHECK (student_engagement BETWEEN 1 AND 5),
-    openness_to_questions INT CHECK (openness_to_questions BETWEEN 1 AND 5),
+    content_clarity INT NOT NULL CHECK (content_clarity BETWEEN 1 AND 5),
+    student_engagement INT NOT NULL CHECK (student_engagement BETWEEN 1 AND 5),
+    openness_to_questions INT NOT NULL CHECK (openness_to_questions BETWEEN 1 AND 5),
     overall_comments TEXT,
-    tech_use INT CHECK (tech_use BETWEEN 1 AND 5),
-    slide_readability INT CHECK (slide_readability BETWEEN 1 AND 5),
-    lecture_pace INT CHECK (lecture_pace BETWEEN 1 AND 5),
+    tech_use INT NOT NULL CHECK (tech_use BETWEEN 1 AND 5),
+    slide_readability INT NOT NULL CHECK (slide_readability BETWEEN 1 AND 5),
+    lecture_pace INT NOT NULL CHECK (lecture_pace BETWEEN 1 AND 5),
 
     FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
 );
