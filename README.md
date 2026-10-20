@@ -89,18 +89,7 @@ frontend/
 └── README.md
 ```
 
-## Development Notes
 
-- Some features currently use mock data and demo authentication.
-- Frontend functionality will be connected to the Flask REST API as backend development progresses.
-- Access to administrative functionality is restricted by role. Backend authorization will be required for production.
-- Some pages and workflows are still under development.
-
-## Team
-
-**UT Dallas — CS 4485 Senior Design, Team 3**
-
-Project Sponsor: Prof. Priya Narayanasami
 
 ## Database setup
 
