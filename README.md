@@ -1,6 +1,5 @@
 # CS4485-assessment-helper
 ## Frontend setup
-# Assessment Helper — Frontend
 
 The frontend for **Assessment Helper**, a web application designed to simplify faculty teaching evaluations and classroom observations at the University of Texas at Dallas.
 
