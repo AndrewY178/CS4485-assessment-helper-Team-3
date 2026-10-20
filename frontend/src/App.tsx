@@ -5,6 +5,7 @@ import { useNavigation } from './context/NavigationContext'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 import PlaceholderPage from './pages/PlaceholderPage'
+import TemplatePage from './pages/TemplatePage'
 
 export default function App() {
   const { role } = useAuth()
@@ -42,7 +43,7 @@ export default function App() {
   let page = <DashboardPage />
   switch (pathname) {
     case '/template':
-      page = <PlaceholderPage title="Observation template" />
+      page = <TemplatePage />
       break
     case '/cycle-setup':
       page = <PlaceholderPage title="Cycle setup" />
