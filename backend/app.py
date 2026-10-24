@@ -1,11 +1,14 @@
+from pathlib import Path
 import json
 from contextlib import contextmanager
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from mysql.connector import IntegrityError
+from dotenv import load_dotenv
 
 from db import query, pool
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 app = Flask(__name__)
 CORS(app)
@@ -610,6 +613,9 @@ def decline_invitation(inv_id):
           (inv_id,), fetch=False)
     return jsonify({"message": "Invitation declined"})
 
+@app.route("/api/health")
+def health():
+    return jsonify(status="ok")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

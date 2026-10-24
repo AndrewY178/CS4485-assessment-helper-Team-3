@@ -1,5 +1,97 @@
 # CS4485-assessment-helper
-## Setup
+## Frontend setup
+
+The frontend for **Assessment Helper**, a web application designed to simplify faculty teaching evaluations and classroom observations at the University of Texas at Dallas.
+
+The application provides interfaces for Assessment Committee (AC) members and faculty to manage evaluation cycles, observation requests, observer assignments, and observation reports.
+
+## Tech Stack
+
+- **React** — Frontend framework
+- **TypeScript** — Type-safe JavaScript
+- **Vite** — Development server and build tool
+- **CSS** — Styling
+- **Flask + MySQL** — Backend and database (separate from frontend)
+
+## Getting Started
+
+### Prerequisites
+
+Make sure Node.js and npm are installed.
+
+### Installation
+
+Navigate to the frontend directory:
+
+```bash
+cd frontend
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Open the local URL displayed in the terminal (typically `http://localhost:5173`).
+
+### Build
+
+To create a production build:
+
+```bash
+npm run build
+```
+
+## Application Features
+
+The application uses two main workspaces:
+
+**AC Workspace**
+- Executive Dashboard
+- Observation Template Management
+- Evaluation Cycle Setup
+- Faculty Sign-up Tracking
+- Observer Selection
+- Observation Tracking and Reports
+
+**Faculty Workspace**
+- Personal Dashboard
+- Evaluation Sign-up
+- Observer Requests (sent and received)
+- Upcoming and Completed Observations
+- Observation Reports
+- Feedback Surveys
+
+Faculty members can participate as both Observers and Observees. AC Members also have access to the Faculty Workspace.
+
+## Project Structure
+
+```text
+frontend/
+├── public/           # Static assets
+├── src/
+│   ├── assets/       # Images and other assets
+│   ├── components/   # Reusable UI components
+│   ├── context/      # Authentication and navigation
+│   ├── data/         # Mock data
+│   ├── pages/        # Application pages
+│   ├── App.tsx       # Application routing
+│   ├── index.css     # Global styles
+│   └── main.tsx      # Application entry point
+├── package.json
+└── README.md
+```
+
+
+
+## Database setup
 
 This project uses MySQL 8.0 running in Docker. You don't need to install MySQL on your machine.
 
