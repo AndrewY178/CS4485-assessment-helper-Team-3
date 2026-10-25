@@ -12,13 +12,14 @@ CREATE TABLE professors (
     professor_id INT PRIMARY KEY,
     professor_name VARCHAR(100) NOT NULL,
     professor_rank VARCHAR(50),
+    professor_department VARCHAR(50),
     FOREIGN KEY (professor_id) REFERENCES users(id)
 
 );
 
 CREATE TABLE observees (
     observee_id INT PRIMARY KEY,
-    observee_department VARCHAR(100),
+    -- observee_department VARCHAR(100),
     last_sem_observed VARCHAR(50),
     hiring_sem VARCHAR(50),
     FOREIGN KEY (observee_id) REFERENCES professors(professor_id)
@@ -33,7 +34,7 @@ CREATE TABLE course_levels (
 
 CREATE TABLE observers (
     observer_id INT PRIMARY KEY,
-    observer_department VARCHAR(100),
+    -- observer_department VARCHAR(100),
     FOREIGN KEY (observer_id) REFERENCES professors(professor_id)
 );
 
