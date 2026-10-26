@@ -81,10 +81,19 @@ export interface KpisResponse {
 export interface UserResponse {
   id: string
   name: string
-  course: string
-  hireLevel: string
-  cycle: string
-  evaluationStatus: EvaluationStatus
+  username: string
+  prof_rank: string // this is hireLevel
+  department: string
+  last_sem_observed: string
+  hiring_sem: string
+  is_ac_member: boolean
+  // might need to put course in a seperate response or an extension of this one
+  // course: string
+  //hireLevel: string
+  // can be inferred by prof_rank
+  // cycle: string
+  // might want to put this in a different response
+  // evaluationStatus: EvaluationStatus
 }
 
 // GET /api/users/{id}
