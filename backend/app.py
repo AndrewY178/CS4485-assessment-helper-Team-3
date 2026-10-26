@@ -51,4 +51,4 @@ def health():
 
 if __name__ == "__main__":
     # host: 0.0.0.0 allows for queries from across the wifi network (not just local host)
-    app.run(host="0.0.0.0", debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=True, port=5001)
