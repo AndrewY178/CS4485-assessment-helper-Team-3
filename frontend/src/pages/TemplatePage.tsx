@@ -21,8 +21,8 @@ function normalizePositions(criteria: TemplateCriterion[]) {
 }
 
 export default function TemplatePage() {
-  const { role } = useAuth()
-  const canEdit = role === 'AC Member'
+  const { roles } = useAuth()
+  const canEdit = roles.includes('AC Member')
   const [draft, setDraft] = useState<ObservationTemplate | null>(null)
   const [workingCopy, setWorkingCopy] = useState<ObservationTemplate | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TemplateCriterion | null>(null)
