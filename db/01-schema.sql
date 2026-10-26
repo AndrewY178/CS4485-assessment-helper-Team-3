@@ -1,4 +1,3 @@
-
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -12,38 +11,39 @@ CREATE TABLE users (
 CREATE TABLE professors (
     professor_id INT PRIMARY KEY,
     professor_name VARCHAR(100) NOT NULL,
+    professor_rank VARCHAR(50),
+    professor_department VARCHAR(50),
     FOREIGN KEY (professor_id) REFERENCES users(id)
 
 );
 
 CREATE TABLE observees (
     observee_id INT PRIMARY KEY,
-    observee_rank VARCHAR(50),
-    observee_department VARCHAR(100),
+    -- observee_department VARCHAR(100),
     last_sem_observed VARCHAR(50),
     hiring_sem VARCHAR(50),
     FOREIGN KEY (observee_id) REFERENCES professors(professor_id)
 );
 
-CREATE TABLE observee_course_levels (
-    observee_id INT NOT NULL,
+CREATE TABLE course_levels (
+    prof_id INT NOT NULL,
     course_level VARCHAR(50) NOT NULL,
-    PRIMARY KEY (observee_id, course_level),
-    FOREIGN KEY (observee_id) REFERENCES observees(observee_id)
+    PRIMARY KEY (prof_id, course_level),
+    FOREIGN KEY (prof_id) REFERENCES professors(professor_id)
 );
 
 CREATE TABLE observers (
     observer_id INT PRIMARY KEY,
-    observer_department VARCHAR(100),
+    -- observer_department VARCHAR(100),
     FOREIGN KEY (observer_id) REFERENCES professors(professor_id)
 );
 
-CREATE TABLE observer_course_levels (
-    observer_id INT NOT NULL,
-    course_level VARCHAR(50) NOT NULL,
-    PRIMARY KEY (observer_id, course_level),
-    FOREIGN KEY (observer_id) REFERENCES observers(observer_id)
-);
+-- CREATE TABLE observer_course_levels (
+    -- observer_id INT NOT NULL,
+    -- course_level VARCHAR(50) NOT NULL,
+    -- PRIMARY KEY (observer_id, course_level),
+    -- FOREIGN KEY (observer_id) REFERENCES observers(observer_id)
+-- );
 
 CREATE TABLE assessment_committee (
     ac_id INT PRIMARY KEY,
@@ -57,7 +57,9 @@ CREATE TABLE courses (
     course_name VARCHAR(150) NOT NULL,
     semester VARCHAR(20) NOT NULL,
     course_description TEXT,
-    course_times VARCHAR(50),
+    course_day VARCHAR(50), -- can be MW, TR, or single day
+    course_start_time VARCHAR(50), -- when the course starts in 24 hour time
+    course_end_time VARCHAR(50), -- when the course ends in 24 hour time
     room_number VARCHAR(50),
     observee_id INT NOT NULL,
 
