@@ -15,40 +15,36 @@ export const currentObservationTemplate: ObservationTemplate = {
   status: 'current',
   criteria: [
     {
-      id: 'criterion-course-organization',
-      name: 'Course Organization',
-      description:
-        'Evaluates how clearly the course materials, objectives, and lesson structure are organized.',
+      id: 'criterion-content-clarity',
+      name: 'Content clarity',
+      description: 'Evaluates how clearly course concepts and material are presented.',
       type: 'Rating 1–5',
       weight: 1,
       required: true,
       position: 1,
     },
     {
-      id: 'criterion-instructional-clarity',
-      name: 'Instructional Clarity',
-      description:
-        'Evaluates how effectively the instructor explains concepts and communicates information.',
+      id: 'criterion-student-engagement-interaction',
+      name: 'Student engagement/interaction',
+      description: 'Evaluates student participation and interaction during the class.',
       type: 'Rating 1–5',
       weight: 1,
       required: true,
       position: 2,
     },
     {
-      id: 'criterion-student-engagement',
-      name: 'Student Engagement',
-      description:
-        'Evaluates how the instructor encourages participation and interaction.',
+      id: 'criterion-openness-to-questions',
+      name: 'Openness to answering questions/response to questions',
+      description: 'Evaluates how effectively student questions are welcomed and answered.',
       type: 'Rating 1–5',
       weight: 1,
       required: true,
       position: 3,
     },
     {
-      id: 'criterion-assessment-feedback',
-      name: 'Assessment and Feedback',
-      description:
-        'Evaluates how the instructor assesses student understanding and provides feedback.',
+      id: 'criterion-use-of-technology',
+      name: 'Use of technology',
+      description: 'Evaluates how technology supports instruction and student learning.',
       type: 'Rating 1–5',
       weight: 1,
       required: true,

@@ -5,6 +5,8 @@ import { useNavigation } from './context/NavigationContext'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 import PlaceholderPage from './pages/PlaceholderPage'
+import SignUpsPage from './pages/SignUpsPage'
+import TrackingPage from './pages/TrackingPage'
 import TemplatePage from './pages/TemplatePage'
 
 export default function App() {
@@ -49,13 +51,13 @@ export default function App() {
       page = <PlaceholderPage title="Cycle setup" />
       break
     case '/sign-ups':
-      page = <PlaceholderPage title="Sign-ups" />
+      page = <SignUpsPage />
       break
     case '/observer-selection':
       page = <PlaceholderPage title="Observer selection" />
       break
     case '/tracking':
-      page = <PlaceholderPage title="Tracking" />
+      page = <TrackingPage />
       break
   }
 
