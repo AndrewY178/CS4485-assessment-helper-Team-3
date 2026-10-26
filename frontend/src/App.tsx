@@ -7,6 +7,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import LoginPage from './pages/LoginPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import SignUpsPage from './pages/SignUpsPage'
+import TrackingPage from './pages/TrackingPage'
 import TemplatePage from './pages/TemplatePage'
 
 // pages anyone can open without being logged in
@@ -63,13 +65,13 @@ export default function App() {
       page = <PlaceholderPage title="Cycle setup" />
       break
     case '/sign-ups':
-      page = <PlaceholderPage title="Sign-ups" />
+      page = <SignUpsPage />
       break
     case '/observer-selection':
       page = <PlaceholderPage title="Observer selection" />
       break
     case '/tracking':
-      page = <PlaceholderPage title="Tracking" />
+      page = <TrackingPage />
       break
   }
 
