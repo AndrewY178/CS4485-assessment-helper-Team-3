@@ -29,11 +29,11 @@ PROFESSOR_SELECT = f"""
     FROM professors AS p
     JOIN users u ON u.id = p.professor_id
     LEFT JOIN observees o ON o.observee_id = p.professor_id
-    LEFT JOIN assessment_committee ac ON ac.ac_id = p.professor_id;
+    LEFT JOIN assessment_committee ac ON ac.ac_id = p.professor_id
 """
 COURSE_SELECT = f"""
     SELECT *
-    FROM courses c;
+    FROM courses c
 """
 
 # AC Member GET endpoints
