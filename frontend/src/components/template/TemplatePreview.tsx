@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ObservationTemplate } from '../../types/template'
+import QuestionInput from './QuestionInput'
 
 interface TemplatePreviewProps {
   template: ObservationTemplate
@@ -39,23 +40,7 @@ export default function TemplatePreview({ template, label, onClose }: TemplatePr
             <li className="preview-criterion" key={criterion.id}>
               <h3>{criterion.name}</h3>
               <p>{criterion.description}</p>
-              <fieldset>
-                <legend>
-                  Rating{criterion.required ? ' (required)' : ' (optional)'}
-                </legend>
-                <div className="preview-rating-options">
-                  {template.ratingScale.map((option) => (
-                    <label key={option.value}>
-                      <input disabled name={`preview-${criterion.id}`} type="radio" />
-                      <span>{option.value} — {option.label}</span>
-                    </label>
-                  ))}
-                  <label>
-                    <input disabled name={`preview-${criterion.id}`} type="radio" />
-                    <span>N/A</span>
-                  </label>
-                </div>
-              </fieldset>
+              <QuestionInput criterion={criterion} ratingScale={template.ratingScale} />
             </li>
           ))}
         </ol>
@@ -63,4 +48,3 @@ export default function TemplatePreview({ template, label, onClose }: TemplatePr
     </dialog>
   )
 }
-

@@ -116,7 +116,7 @@ export default function TemplatePage() {
               onClick={() => showNotice('Publishing requires backend integration. No template was activated.')}
               type="button"
             >
-              Publish version 3
+              Publish template
             </button>
           )}
         </div>
