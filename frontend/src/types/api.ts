@@ -23,7 +23,7 @@ export interface LoginResponse {
 // POST /api/auth/logout
 // Used by: Sidebar "Log out"
 // PROPOSED response: 204 No Content
-export interface LogoutResponse {}
+export type LogoutResponse = void
 
 // POST /api/auth/forgot-password
 // PROPOSED request: { email }   PROPOSED response: { message }
@@ -50,19 +50,44 @@ export interface ChangePasswordRequest {
 
 // ---------- AC Member ----------
 
+export type CycleStatus =
+  | 'draft'
+  | 'signup'
+  | 'observation'
+  | 'feedback'
+  | 'closed'
+
 // GET /api/schedule/{semId}
-// Used by: cycleSteps (Stepper)
-export interface ScheduleResponse {
+// Timestamps are UTC ISO 8601 strings. Display them in the response timezone.
+export interface EvaluationCycleResponse {
+  id: string
   semesterId: string
-  signUpDeadline: string        // "YYYY-MM-DD"
-  observerSelectionDate: string // "YYYY-MM-DD"
-  observationDeadline: string   // "YYYY-MM-DD"
-  surveyDeadline: string        // "YYYY-MM-DD"
+  semesterLabel: string
+  timezone: 'America/Chicago'
+  status: CycleStatus
+  signupDeadline: string
+  observationDeadline: string
+  feedbackDeadline: string
+  updatedAt: string
 }
 
 // POST/PUT /api/schedule/{semId}
-// PROPOSED request: same fields as ScheduleResponse
-export type ScheduleRequest = Omit<ScheduleResponse, 'semesterId'>
+export interface SaveEvaluationCycleRequest {
+  signupDeadline: string
+  observationDeadline: string
+  feedbackDeadline: string
+}
+
+export interface ApiFieldError {
+  field: string
+  message: string
+}
+
+export interface ApiErrorResponse {
+  code: string
+  message: string
+  fieldErrors?: ApiFieldError[]
+}
 
 // GET /api/kpis
 // Used by: stats (StatCard)

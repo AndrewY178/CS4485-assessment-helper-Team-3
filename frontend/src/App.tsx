@@ -3,6 +3,7 @@ import AppLayout from './components/AppLayout'
 import { useAuth } from './context/AuthContext'
 import { useNavigation } from './context/NavigationContext'
 import DashboardPage from './pages/DashboardPage'
+import CycleSetupPage from './pages/CycleSetupPage'
 import LoginPage from './pages/LoginPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import TemplatePage from './pages/TemplatePage'
@@ -46,7 +47,7 @@ export default function App() {
       page = <TemplatePage />
       break
     case '/cycle-setup':
-      page = <PlaceholderPage title="Cycle setup" />
+      page = <CycleSetupPage />
       break
     case '/sign-ups':
       page = <PlaceholderPage title="Sign-ups" />
