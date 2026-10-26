@@ -1,4 +1,96 @@
 # CS4485-assessment-helper
+## Frontend setup
+
+The frontend for **Assessment Helper**, a web application designed to simplify faculty teaching evaluations and classroom observations at the University of Texas at Dallas.
+
+The application provides interfaces for Assessment Committee (AC) members and faculty to manage evaluation cycles, observation requests, observer assignments, and observation reports.
+
+## Tech Stack
+
+- **React** — Frontend framework
+- **TypeScript** — Type-safe JavaScript
+- **Vite** — Development server and build tool
+- **CSS** — Styling
+- **Flask + MySQL** — Backend and database (separate from frontend)
+
+## Getting Started
+
+### Prerequisites
+
+Make sure Node.js and npm are installed.
+
+### Installation
+
+Navigate to the frontend directory:
+
+```bash
+cd frontend
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Open the local URL displayed in the terminal (typically `http://localhost:5173`).
+
+### Build
+
+To create a production build:
+
+```bash
+npm run build
+```
+
+## Application Features
+
+The application uses two main workspaces:
+
+**AC Workspace**
+- Executive Dashboard
+- Observation Template Management
+- Evaluation Cycle Setup
+- Faculty Sign-up Tracking
+- Observer Selection
+- Observation Tracking and Reports
+
+**Faculty Workspace**
+- Personal Dashboard
+- Evaluation Sign-up
+- Observer Requests (sent and received)
+- Upcoming and Completed Observations
+- Observation Reports
+- Feedback Surveys
+
+Faculty members can participate as both Observers and Observees. AC Members also have access to the Faculty Workspace.
+
+## Project Structure
+
+```text
+frontend/
+├── public/           # Static assets
+├── src/
+│   ├── assets/       # Images and other assets
+│   ├── components/   # Reusable UI components
+│   ├── context/      # Authentication and navigation
+│   ├── data/         # Mock data
+│   ├── pages/        # Application pages
+│   ├── App.tsx       # Application routing
+│   ├── index.css     # Global styles
+│   └── main.tsx      # Application entry point
+├── package.json
+└── README.md
+```
+
+
+
 ## Database setup
 
 This project uses MySQL 8.0 running in Docker. You don't need to install MySQL on your machine.
@@ -33,9 +125,10 @@ docker compose version
 
 3. **Start the database**
    ```bash
-   docker compose up -d
+   docker compose up -d --build
    ```
    the -d makes sure that the docker container detaches when you run it
+   the --build gets everything ready for the backend
 
 4. **Wait for it to finish initializing** (about 20-30 seconds the first time):
    ```bash
@@ -48,6 +141,10 @@ docker compose version
    docker compose exec db mysql -u class_user -p class_project -e "SHOW TABLES;"
    ```
    Enter the `MYSQL_PASSWORD` from your `.env` when prompted. You should see the tables from `db/01-schema.sql`.
+   ```bash
+   curl http://localhost:5000/api/users
+   ```
+   should return [] if no users or the users if users have been added
 
 ### Connection details
 
@@ -67,11 +164,11 @@ Use these in your app or in a GUI client (MySQL Workbench, DBeaver, etc.):
 
 | Task                              | Command                    |
 |-----------------------------------|----------------------------|
-| Start the database                | `docker compose up -d`     |
+| Start the database and backend    | `docker compose up -d --build`|
 | Stop it (keeps data)              | `docker compose stop`      |
 | Shut down (keeps data)            | `docker compose down`      |
-| Reset the database (deletes data) | `docker compose down -v && docker compose up -d` |
-| View logs                         | `docker compose logs db`   |
+| Reset the database (deletes data) | `docker compose down -v && docker compose up -d --build` |
+| View logs                         | `docker compose logs [db\|backend]`   |
 
 ### Changing the schema
 
@@ -85,19 +182,6 @@ docker compose up -d
 ```
 
 This deletes all local data, which is fine for development.
-
-### Project structure
-
-```
-.
-├── docker-compose.yml   # Database container config
-├── .env.example         # Template for environment variables
-├── .env                 # Your local secrets (NOT committed)
-├── db/
-│   ├── 01-schema.sql    # Table definitions
-│   └── 02-seed.sql      # Sample data
-└── README.md
-```
 
 ### Troubleshooting
 
