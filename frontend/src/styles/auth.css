@@ -1,0 +1,48 @@
+/* extras for the login, forgot-password and set-password screens */
+
+.auth-link {
+  align-self: center;
+  color: var(--green-700);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.auth-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form-banner {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 11px 13px;
+  font-size: 13px;
+}
+
+.form-banner--error {
+  color: #a33f38;
+  background: #fbefee;
+  border-color: #efc9c6;
+}
+
+.form-banner--success {
+  color: var(--green-700);
+  background: #eef7f2;
+  border-color: #cfe5d9;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}

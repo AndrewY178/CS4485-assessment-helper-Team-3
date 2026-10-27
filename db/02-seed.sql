@@ -298,3 +298,20 @@ SELECT DISTINCT
     CONCAT(SUBSTRING(c.course_number, 1, 1), '000')
 FROM courses c
 WHERE c.department = 'CS';
+
+-- shared dev account (has all three roles: AC Member, Observer, Observee)
+-- DEV ONLY: delete this account (and don't run this seed file) before any real deployment
+INSERT INTO users (username, email, password_hash) VALUES
+  ('dev_user', 'dev@example.com', 'scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636');
+
+INSERT INTO professors (professor_id, professor_name)
+  SELECT id, 'Dev' FROM users WHERE username = 'dev_user';
+
+INSERT INTO assessment_committee (ac_id)
+  SELECT id FROM users WHERE username = 'dev_user';
+
+INSERT INTO observers (observer_id)
+  SELECT id FROM users WHERE username = 'dev_user';
+
+INSERT INTO observees (observee_id)
+  SELECT id FROM users WHERE username = 'dev_user';

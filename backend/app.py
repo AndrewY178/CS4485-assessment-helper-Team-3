@@ -6,6 +6,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from mysql.connector import IntegrityError
 from dotenv import load_dotenv
+from auth import auth_bp
 
 from db import query, pool
 
@@ -14,6 +15,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 app = Flask(__name__)
 CORS(app)
+app.register_blueprint(auth_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
@@ -49,4 +51,4 @@ def health():
 
 if __name__ == "__main__":
     # host: 0.0.0.0 allows for queries from across the wifi network (not just local host)
-    app.run(host="0.0.0.0", debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=True, port=5001)
