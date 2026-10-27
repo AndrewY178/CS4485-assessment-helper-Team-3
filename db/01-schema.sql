@@ -17,13 +17,33 @@ CREATE TABLE professors (
 
 );
 
+CREATE TABLE courses (
+    course_id INT AUTO_INCREMENT PRIMARY KEY,
+    department VARCHAR(10) NOT NULL,
+    course_number VARCHAR(10) NOT NULL,
+    section_number VARCHAR(10) NOT NULL,
+    course_name VARCHAR(150) NOT NULL,
+    semester VARCHAR(20) NOT NULL,
+    course_description TEXT,
+    course_day VARCHAR(50), -- can be MW, TR, or single day
+    course_start_time VARCHAR(50), -- when the course starts in 24 hour time
+    course_end_time VARCHAR(50), -- when the course ends in 24 hour time
+    room_number VARCHAR(50),
+    prof_id INT NOT NULL, -- might not need this anymore?
+
+    FOREIGN KEY (prof_id) REFERENCES professors(professor_id)
+);
+
 CREATE TABLE observees (
-    observee_id INT PRIMARY KEY,
+    observee_id INT,
     -- observee_department VARCHAR(100),
     last_sem_observed VARCHAR(50),
     hiring_sem VARCHAR(50),
     signup_sem VARCHAR(20),
-    FOREIGN KEY (observee_id) REFERENCES professors(professor_id)
+    signup_course INT,
+    PRIMARY KEY (observee_id, signup_sem),
+    FOREIGN KEY (observee_id) REFERENCES professors(professor_id),
+    FOREIGN KEY (signup_course) REFERENCES courses(course_id)
 );
 
 CREATE TABLE course_levels (
@@ -51,37 +71,20 @@ CREATE TABLE assessment_committee (
     FOREIGN KEY (ac_id) REFERENCES professors(professor_id)
 );
 
-CREATE TABLE courses (
-    department VARCHAR(10) NOT NULL,
-    course_number VARCHAR(10) NOT NULL,
-    section_number VARCHAR(10) NOT NULL,
-    course_name VARCHAR(150) NOT NULL,
-    semester VARCHAR(20) NOT NULL,
-    course_description TEXT,
-    course_day VARCHAR(50), -- can be MW, TR, or single day
-    course_start_time VARCHAR(50), -- when the course starts in 24 hour time
-    course_end_time VARCHAR(50), -- when the course ends in 24 hour time
-    room_number VARCHAR(50),
-    observee_id INT NOT NULL,
-
-    PRIMARY KEY (department, course_number, section_number, semester),
-    FOREIGN KEY (observee_id) REFERENCES observees(observee_id)
-);
-
 CREATE TABLE meetings (
     meeting_id INT AUTO_INCREMENT PRIMARY KEY,
     meeting_date DATE NOT NULL,
 
-    department VARCHAR(10) NOT NULL,
-    course_number VARCHAR(10) NOT NULL,
-    section_number VARCHAR(10) NOT NULL,
-    semester VARCHAR(20) NOT NULL,
+    course_id INT,
+    -- department VARCHAR(10) NOT NULL,
+    -- course_number VARCHAR(10) NOT NULL,
+    -- section_number VARCHAR(10) NOT NULL,
+    -- semester VARCHAR(20) NOT NULL,
 
     observer_id INT NOT NULL,
     ac_id INT,
 
-    FOREIGN KEY (department, course_number, section_number, semester)
-        REFERENCES courses(department, course_number, section_number, semester),
+    FOREIGN KEY (course_id) REFERENCES courses(course_id),
 
     FOREIGN KEY (observer_id) REFERENCES observers(observer_id),
     FOREIGN KEY (ac_id) REFERENCES assessment_committee(ac_id)

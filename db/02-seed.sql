@@ -94,7 +94,7 @@ INSERT INTO courses (
     course_start_time,
     course_end_time,
     room_number,
-    observee_id
+    prof_id
 )
 SELECT
     'CS',
@@ -114,7 +114,7 @@ WHERE username = 'prof_01';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -134,7 +134,7 @@ WHERE username = 'prof_02';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -154,7 +154,7 @@ WHERE username = 'prof_03';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -174,7 +174,7 @@ WHERE username = 'prof_04';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -194,7 +194,7 @@ WHERE username = 'prof_05';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -214,7 +214,7 @@ WHERE username = 'prof_06';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -234,7 +234,7 @@ WHERE username = 'prof_07';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -254,7 +254,7 @@ WHERE username = 'prof_08';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -274,7 +274,7 @@ WHERE username = 'prof_09';
 INSERT INTO courses (
     department, course_number, section_number, course_name,
     semester, course_description, course_day,
-    course_start_time, course_end_time, room_number, observee_id
+    course_start_time, course_end_time, room_number, prof_id
 )
 SELECT
     'CS',
@@ -291,6 +291,13 @@ SELECT
 FROM users
 WHERE username = 'prof_10';
 
+-- add the courses the prof wants observed
+UPDATE observees o
+JOIN courses c
+    ON c.prof_id = o.observee_id
+SET o.signup_course = c.course_id
+WHERE c.prof_id IS NOT NULL;
+
 -- Assign each professor the course level represented by the
 -- first digit of the course number.
 
@@ -298,7 +305,7 @@ WHERE username = 'prof_10';
 -- multiple courses at the same level.
 INSERT INTO course_levels (prof_id, course_level)
 SELECT DISTINCT
-    c.observee_id,
+    c.prof_id,
     CONCAT(SUBSTRING(c.course_number, 1, 1), '000')
 FROM courses c
 WHERE c.department = 'CS';
@@ -317,5 +324,6 @@ INSERT INTO assessment_committee (ac_id)
 INSERT INTO observers (observer_id)
   SELECT id FROM users WHERE username = 'dev_user';
 
-INSERT INTO observees (observee_id)
-  SELECT id FROM users WHERE username = 'dev_user';
+INSERT INTO observees (observee_id, signup_sem)
+  SELECT id, "Fall 1996"
+ FROM users WHERE username = 'dev_user';
