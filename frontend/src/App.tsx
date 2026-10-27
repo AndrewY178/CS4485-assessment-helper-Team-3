@@ -5,6 +5,7 @@ import { useNavigation } from './context/NavigationContext'
 import DashboardPage from './pages/DashboardPage'
 import CycleSetupPage from './pages/CycleSetupPage'
 import LoginPage from './pages/LoginPage'
+import ObserverSelectionPage from './pages/ObserverSelectionPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import TemplatePage from './pages/TemplatePage'
 
@@ -53,7 +54,7 @@ export default function App() {
       page = <PlaceholderPage title="Sign-ups" />
       break
     case '/observer-selection':
-      page = <PlaceholderPage title="Observer selection" />
+      page = <ObserverSelectionPage />
       break
     case '/tracking':
       page = <PlaceholderPage title="Tracking" />

@@ -145,6 +145,66 @@ export interface SetObserversRequest {
   observerIds: string[]
 }
 
+// ---------- Observer selection ----------
+
+export type ObserverSelectionStatus =
+  | 'not-generated'
+  | 'pending-review'
+  | 'approved'
+  | 'invitations-sent'
+  | 'no-eligible-observers'
+
+export type ObserverEligibilityStatus = 'eligible' | 'unavailable'
+
+export interface ObserverCandidateResponse {
+  facultyId: string
+  name: string
+  department: string
+  relevantCourseLevel: string
+  currentObservationCount: number
+  remainingCapacity: number
+  scheduleCompatibility: string
+  eligibilityStatus: ObserverEligibilityStatus
+  matchingReasons: string[]
+}
+
+// PROPOSED: GET /api/observer-selection?semesterId={semesterId}
+// One entry per faculty member who signed up. The backend must return no more
+// than five candidates and enforce eligibility, schedule, and capacity rules.
+export interface ObserverSelectionResponse {
+  observationId: string
+  semesterId: string
+  observee: {
+    facultyId: string
+    name: string
+    department: string
+  }
+  course: {
+    code: string
+    section: string
+    title: string
+    meetingDays: string[]
+    startTime: string
+    endTime: string
+  }
+  status: ObserverSelectionStatus
+  recommendations: ObserverCandidateResponse[]
+  selectedCandidateIds: string[]
+  warning?: string
+}
+
+// PROPOSED: POST /api/observer-selection/run
+export interface RunObserverSelectionRequest {
+  semesterId: string
+  observationId?: string
+}
+
+// PROPOSED: PUT /api/observer-selection/{observationId}/approval
+// The backend must reject empty lists, lists over five, and ineligible IDs.
+export interface ApproveObserverCandidatesRequest {
+  candidateIds: string[]
+}
+
 // GET /api/template
 // NO ENDPOINT YET: only POST/PUT exists. Needed to load the template page.
 // POST/PUT /api/template
