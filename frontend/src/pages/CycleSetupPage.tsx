@@ -56,7 +56,7 @@ function validateDeadlines(values: SaveEvaluationCycleRequest) {
 }
 
 export default function CycleSetupPage() {
-  const { role } = useAuth()
+  const { roles } = useAuth()
   const [records, setRecords] = useState(initialCycleRecords)
   const [selectedSemesterId, setSelectedSemesterId] = useState(records[0].cycle.semesterId)
   const selectedRecord = records.find((record) => record.cycle.semesterId === selectedSemesterId) ?? records[0]
@@ -67,7 +67,8 @@ export default function CycleSetupPage() {
 
   const savedForm = useMemo(() => cycleToForm(selectedRecord), [selectedRecord])
   const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm)
-  const canEdit = role === 'AC Member' && selectedRecord.cycle.status !== 'closed'
+  const isACMember = roles.includes('AC Member')
+  const canEdit = isACMember && selectedRecord.cycle.status !== 'closed'
 
   function showNotice(message: string) {
     setNotice(message)
@@ -129,7 +130,7 @@ export default function CycleSetupPage() {
     showNotice('Cycle draft saved for this session. It will be lost on refresh.')
   }
 
-  if (role !== 'AC Member') {
+  if (!isACMember) {
     return (
       <section className="cycle-access-denied">
         <h1>Cycle setup</h1>

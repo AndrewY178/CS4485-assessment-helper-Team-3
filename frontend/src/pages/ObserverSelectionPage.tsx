@@ -47,7 +47,7 @@ function generatedState(
 }
 
 export default function ObserverSelectionPage() {
-  const { role } = useAuth()
+  const { roles } = useAuth()
   const [rows, setRows] = useState(initialObserverSelectionRows)
   const [selectedId, setSelectedId] = useState(rows[0].observationId)
   const [attempts, setAttempts] = useState<Record<string, number>>({ 'observation-205': 1 })
@@ -160,7 +160,7 @@ export default function ObserverSelectionPage() {
     showNotice('Approved list reopened for editing in this browser session.')
   }
 
-  if (role !== 'AC Member') {
+  if (!roles.includes('AC Member')) {
     return (
       <section className="observer-selection-access-denied">
         <h1>Observer selection</h1>
