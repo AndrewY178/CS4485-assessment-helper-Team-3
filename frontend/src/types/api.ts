@@ -24,7 +24,7 @@ export interface LoginResponse {
 // POST /api/auth/logout
 // Used by: Sidebar "Log out"
 // PROPOSED response: 204 No Content
-export interface LogoutResponse {}
+export type LogoutResponse = void
 
 // POST /api/auth/forgot-password
 // PROPOSED request: { email }   PROPOSED response: { message }
@@ -51,19 +51,44 @@ export interface ChangePasswordRequest {
 
 // ---------- AC Member ----------
 
+export type CycleStatus =
+  | 'draft'
+  | 'signup'
+  | 'observation'
+  | 'feedback'
+  | 'closed'
+
 // GET /api/schedule/{semId}
-// Used by: cycleSteps (Stepper)
-export interface ScheduleResponse {
+// Timestamps are UTC ISO 8601 strings. Display them in the response timezone.
+export interface EvaluationCycleResponse {
+  id: string
   semesterId: string
-  signUpDeadline: string        // "YYYY-MM-DD"
-  observerSelectionDate: string // "YYYY-MM-DD"
-  observationDeadline: string   // "YYYY-MM-DD"
-  surveyDeadline: string        // "YYYY-MM-DD"
+  semesterLabel: string
+  timezone: 'America/Chicago'
+  status: CycleStatus
+  signupDeadline: string
+  observationDeadline: string
+  feedbackDeadline: string
+  updatedAt: string
 }
 
 // POST/PUT /api/schedule/{semId}
-// PROPOSED request: same fields as ScheduleResponse
-export type ScheduleRequest = Omit<ScheduleResponse, 'semesterId'>
+export interface SaveEvaluationCycleRequest {
+  signupDeadline: string
+  observationDeadline: string
+  feedbackDeadline: string
+}
+
+export interface ApiFieldError {
+  field: string
+  message: string
+}
+
+export interface ApiErrorResponse {
+  code: string
+  message: string
+  fieldErrors?: ApiFieldError[]
+}
 
 // GET /api/kpis
 // Used by: stats (StatCard)
@@ -119,6 +144,66 @@ export interface ObservationDetailResponse extends ObservationResponse {
 // PROPOSED request: { observerIds: string[] }
 export interface SetObserversRequest {
   observerIds: string[]
+}
+
+// ---------- Observer selection ----------
+
+export type ObserverSelectionStatus =
+  | 'not-generated'
+  | 'pending-review'
+  | 'approved'
+  | 'invitations-sent'
+  | 'no-eligible-observers'
+
+export type ObserverEligibilityStatus = 'eligible' | 'unavailable'
+
+export interface ObserverCandidateResponse {
+  facultyId: string
+  name: string
+  department: string
+  relevantCourseLevel: string
+  currentObservationCount: number
+  remainingCapacity: number
+  scheduleCompatibility: string
+  eligibilityStatus: ObserverEligibilityStatus
+  matchingReasons: string[]
+}
+
+// PROPOSED: GET /api/observer-selection?semesterId={semesterId}
+// One entry per faculty member who signed up. The backend must return no more
+// than five candidates and enforce eligibility, schedule, and capacity rules.
+export interface ObserverSelectionResponse {
+  observationId: string
+  semesterId: string
+  observee: {
+    facultyId: string
+    name: string
+    department: string
+  }
+  course: {
+    code: string
+    section: string
+    title: string
+    meetingDays: string[]
+    startTime: string
+    endTime: string
+  }
+  status: ObserverSelectionStatus
+  recommendations: ObserverCandidateResponse[]
+  selectedCandidateIds: string[]
+  warning?: string
+}
+
+// PROPOSED: POST /api/observer-selection/run
+export interface RunObserverSelectionRequest {
+  semesterId: string
+  observationId?: string
+}
+
+// PROPOSED: PUT /api/observer-selection/{observationId}/approval
+// The backend must reject empty lists, lists over five, and ineligible IDs.
+export interface ApproveObserverCandidatesRequest {
+  candidateIds: string[]
 }
 
 // GET /api/template

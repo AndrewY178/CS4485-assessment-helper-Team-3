@@ -3,9 +3,10 @@ import AppLayout from './components/AppLayout'
 import { useAuth } from './context/AuthContext'
 import { useNavigation } from './context/NavigationContext'
 import DashboardPage from './pages/DashboardPage'
+import CycleSetupPage from './pages/CycleSetupPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import LoginPage from './pages/LoginPage'
-import PlaceholderPage from './pages/PlaceholderPage'
+import ObserverSelectionPage from './pages/ObserverSelectionPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import SignUpsPage from './pages/SignUpsPage'
 import TrackingPage from './pages/TrackingPage'
@@ -62,13 +63,13 @@ export default function App() {
       page = <TemplatePage />
       break
     case '/cycle-setup':
-      page = <PlaceholderPage title="Cycle setup" />
+      page = <CycleSetupPage />
       break
     case '/sign-ups':
       page = <SignUpsPage />
       break
     case '/observer-selection':
-      page = <PlaceholderPage title="Observer selection" />
+      page = <ObserverSelectionPage />
       break
     case '/tracking':
       page = <TrackingPage />
