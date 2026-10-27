@@ -1,4 +1,5 @@
 export type TemplateStatus = 'current' | 'draft'
+export type QuestionType = 'Rating 1–5' | 'Yes/No' | 'Short Answer' | 'Long Answer'
 
 export interface RatingOption {
   value: number
@@ -9,8 +10,8 @@ export interface TemplateCriterion {
   id: string
   name: string
   description: string
-  type: 'Rating 1–5'
-  weight: number
+  type: QuestionType
+  weight: number | null
   required: boolean
   position: number
 }
@@ -23,4 +24,3 @@ export interface ObservationTemplate {
   ratingScale: RatingOption[]
   effectiveSemester: string | null
 }
-

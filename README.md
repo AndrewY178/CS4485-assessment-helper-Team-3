@@ -125,9 +125,10 @@ docker compose version
 
 3. **Start the database**
    ```bash
-   docker compose up -d
+   docker compose up -d --build
    ```
    the -d makes sure that the docker container detaches when you run it
+   the --build gets everything ready for the backend
 
 4. **Wait for it to finish initializing** (about 20-30 seconds the first time):
    ```bash
@@ -140,6 +141,10 @@ docker compose version
    docker compose exec db mysql -u class_user -p class_project -e "SHOW TABLES;"
    ```
    Enter the `MYSQL_PASSWORD` from your `.env` when prompted. You should see the tables from `db/01-schema.sql`.
+   ```bash
+   curl http://localhost:5000/api/users
+   ```
+   should return [] if no users or the users if users have been added
 
 ### Connection details
 
@@ -159,11 +164,11 @@ Use these in your app or in a GUI client (MySQL Workbench, DBeaver, etc.):
 
 | Task                              | Command                    |
 |-----------------------------------|----------------------------|
-| Start the database                | `docker compose up -d`     |
+| Start the database and backend    | `docker compose up -d --build`|
 | Stop it (keeps data)              | `docker compose stop`      |
 | Shut down (keeps data)            | `docker compose down`      |
-| Reset the database (deletes data) | `docker compose down -v && docker compose up -d` |
-| View logs                         | `docker compose logs db`   |
+| Reset the database (deletes data) | `docker compose down -v && docker compose up -d --build` |
+| View logs                         | `docker compose logs [db\|backend]`   |
 
 ### Changing the schema
 
@@ -177,19 +182,6 @@ docker compose up -d
 ```
 
 This deletes all local data, which is fine for development.
-
-### Project structure
-
-```
-.
-├── docker-compose.yml   # Database container config
-├── .env.example         # Template for environment variables
-├── .env                 # Your local secrets (NOT committed)
-├── db/
-│   ├── 01-schema.sql    # Table definitions
-│   └── 02-seed.sql      # Sample data
-└── README.md
-```
 
 ### Troubleshooting
 

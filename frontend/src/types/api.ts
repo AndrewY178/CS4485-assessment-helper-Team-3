@@ -16,7 +16,8 @@ export interface LoginRequest {
 }
 export interface LoginResponse {
   token: string
-  role: Role
+  role: Role | null // first role the person holds (null if none), have frontend ignore this
+  roles: Role[] // all roles the person holds 
   userId: string
 }
 
