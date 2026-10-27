@@ -69,10 +69,14 @@ WHERE username LIKE 'prof_%';
 
 -- Make each professor an observee.
 INSERT INTO observees (
-    observee_id, last_sem_observed, hiring_sem
+    observee_id, last_sem_observed, hiring_sem, signup_sem
 )
 SELECT
-    id, NULL, 'Fall 2024'
+    id, NULL, 'Fall 2024',
+    CASE 
+        WHEN username = 'prof_10' THEN 'Spring 2026'
+        ELSE 'Fall 2026' 
+    END
 FROM users
 WHERE username LIKE 'prof_%';
 

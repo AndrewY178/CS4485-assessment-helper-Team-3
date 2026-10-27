@@ -22,6 +22,7 @@ CREATE TABLE observees (
     -- observee_department VARCHAR(100),
     last_sem_observed VARCHAR(50),
     hiring_sem VARCHAR(50),
+    signup_sem VARCHAR(20),
     FOREIGN KEY (observee_id) REFERENCES professors(professor_id)
 );
 
