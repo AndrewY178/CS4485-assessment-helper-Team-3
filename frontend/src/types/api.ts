@@ -106,10 +106,19 @@ export interface KpisResponse {
 export interface UserResponse {
   id: string
   name: string
-  course: string
-  hireLevel: string
-  cycle: string
-  evaluationStatus: EvaluationStatus
+  username: string
+  prof_rank: string // this is hireLevel
+  department: string
+  last_sem_observed: string | null
+  hiring_sem: string | null
+  is_ac_member: boolean
+  // might need to put course in a seperate response or an extension of this one
+  // course: string
+  //hireLevel: string
+  // can be inferred by prof_rank
+  // cycle: string
+  // might want to put this in a different response
+  // evaluationStatus: EvaluationStatus
 }
 
 // GET /api/users/{id}
@@ -117,6 +126,18 @@ export interface UserResponse {
 // PROPOSED: same shape as UserResponse, plus email
 export interface UserDetailResponse extends UserResponse {
   email: string
+}
+
+export interface ObserveeResponse extends UserDetailResponse {
+  signup_sem: string
+  course_id: string | null
+  course_department: string | null
+  course_number: string | null
+  section_number: string | null
+  course_name: string | null
+  course_day: string | null
+  course_start_time: string | null
+  course_end_time: string | null
 }
 
 // POST/PUT /api/users/{id}
