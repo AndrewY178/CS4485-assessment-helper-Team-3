@@ -53,11 +53,11 @@ CREATE TABLE course_levels (
     FOREIGN KEY (prof_id) REFERENCES professors(professor_id)
 );
 
-CREATE TABLE observers (
-    observer_id INT PRIMARY KEY,
+-- CREATE TABLE observers (
+    -- observer_id INT PRIMARY KEY,
     -- observer_department VARCHAR(100),
-    FOREIGN KEY (observer_id) REFERENCES professors(professor_id)
-);
+    -- FOREIGN KEY (observer_id) REFERENCES professors(professor_id)
+-- );
 
 -- CREATE TABLE observer_course_levels (
     -- observer_id INT NOT NULL,
@@ -86,7 +86,7 @@ CREATE TABLE meetings (
 
     FOREIGN KEY (course_id) REFERENCES courses(course_id),
 
-    FOREIGN KEY (observer_id) REFERENCES observers(observer_id),
+    FOREIGN KEY (observer_id) REFERENCES observees(observee_id),
     FOREIGN KEY (ac_id) REFERENCES assessment_committee(ac_id)
 );
 

@@ -101,7 +101,7 @@ SELECT
     '1336',
     '001',
     'Programming Fundamentals',
-    'Fall 2025',
+    'Fall 2026',
     'Introduction to programming and problem solving.',
     'MW',
     '10:00:00',
@@ -121,7 +121,7 @@ SELECT
     '2336',
     '001',
     'Computer Science II',
-    'Fall 2025',
+    'Fall 2026',
     'Object-oriented programming and data structures.',
     'TR',
     '09:00:00',
@@ -141,7 +141,7 @@ SELECT
     '3305',
     '001',
     'Discrete Mathematics for Computing',
-    'Fall 2025',
+    'Fall 2026',
     'Logic, proofs, sets, graphs, and combinatorics.',
     'MW',
     '11:30:00',
@@ -161,7 +161,7 @@ SELECT
     '3341',
     '001',
     'Probability and Statistics in Computer Science',
-    'Fall 2025',
+    'Fall 2026',
     'Probability models and statistical methods for computing.',
     'TR',
     '10:30:00',
@@ -181,7 +181,7 @@ SELECT
     '3345',
     '001',
     'Data Structures and Advanced Programming',
-    'Fall 2025',
+    'Fall 2026',
     'Advanced data structures and algorithmic techniques.',
     'MW',
     '13:00:00',
@@ -201,7 +201,7 @@ SELECT
     '4341',
     '001',
     'Computer Architecture',
-    'Fall 2025',
+    'Fall 2026',
     'Organization and design of modern computer systems.',
     'TR',
     '12:00:00',
@@ -221,7 +221,7 @@ SELECT
     '4347',
     '001',
     'Database Systems',
-    'Fall 2025',
+    'Fall 2026',
     'Database design, SQL, indexing, and transactions.',
     'MW',
     '14:30:00',
@@ -241,7 +241,7 @@ SELECT
     '4348',
     '001',
     'Operating Systems',
-    'Fall 2025',
+    'Fall 2026',
     'Processes, memory management, filesystems, and concurrency.',
     'TR',
     '13:30:00',
@@ -261,7 +261,7 @@ SELECT
     '4384',
     '001',
     'Computer Networks',
-    'Fall 2025',
+    'Fall 2026',
     'Network protocols, routing, and distributed communication.',
     'MW',
     '16:00:00',
@@ -281,7 +281,7 @@ SELECT
     '4485',
     '001',
     'Computer Science Project',
-    'Fall 2025',
+    'Fall 2026',
     'Senior software engineering project course.',
     'TR',
     '15:00:00',
@@ -321,8 +321,8 @@ INSERT INTO professors (professor_id, professor_name)
 INSERT INTO assessment_committee (ac_id)
   SELECT id FROM users WHERE username = 'dev_user';
 
-INSERT INTO observers (observer_id)
-  SELECT id FROM users WHERE username = 'dev_user';
+-- INSERT INTO observers (observer_id)
+--   SELECT id FROM users WHERE username = 'dev_user';
 
 INSERT INTO observees (observee_id, signup_sem)
   SELECT id, "Fall 1996"
