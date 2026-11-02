@@ -2,7 +2,7 @@
 
 // ---------- Shared types ----------
 export type EvaluationStatus = 'due' | 'overdue' | 'outstanding' | 'complete'
-export type Role = 'AC Member' | 'Observee' | 'Observer'
+export type Role = 'AC Member' | 'Observee'
 
 // ---------- General / Auth ----------
 

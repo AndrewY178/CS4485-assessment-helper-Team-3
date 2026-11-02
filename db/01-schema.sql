@@ -75,7 +75,7 @@ CREATE TABLE meetings (
     meeting_id INT AUTO_INCREMENT PRIMARY KEY,
     meeting_date DATE NOT NULL,
 
-    course_id INT,
+    course_id INT NOT NULL,
     -- department VARCHAR(10) NOT NULL,
     -- course_number VARCHAR(10) NOT NULL,
     -- section_number VARCHAR(10) NOT NULL,
@@ -85,7 +85,6 @@ CREATE TABLE meetings (
     ac_id INT,
 
     FOREIGN KEY (course_id) REFERENCES courses(course_id),
-
     FOREIGN KEY (observer_id) REFERENCES observees(observee_id),
     FOREIGN KEY (ac_id) REFERENCES assessment_committee(ac_id)
 );

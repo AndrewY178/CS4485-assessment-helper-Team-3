@@ -29,7 +29,6 @@ MIN_PASSWORD_LENGTH = 8
 # roles come from the professor-subtype tables
 ROLE_TABLES = {
     "AC Member": ("assessment_committee", "ac_id"),
-    "Observer": ("observers", "observer_id"),
     "Observee": ("observees", "observee_id"),
 }
 
@@ -58,11 +57,9 @@ def _roles_for(user_id):
     rows = query(
         """
         SELECT ac.ac_id IS NOT NULL AS is_ac,
-               obr.observer_id IS NOT NULL AS is_observer,
                obe.observee_id IS NOT NULL AS is_observee
         FROM users u
         LEFT JOIN assessment_committee ac ON ac.ac_id = u.id
-        LEFT JOIN observers obr ON obr.observer_id = u.id
         LEFT JOIN observees obe ON obe.observee_id = u.id
         WHERE u.id = %s
         """,
@@ -72,8 +69,6 @@ def _roles_for(user_id):
     roles = []
     if row.get("is_ac"):
         roles.append("AC Member")
-    if row.get("is_observer"):
-        roles.append("Observer")
     if row.get("is_observee"):
         roles.append("Observee")
     return roles

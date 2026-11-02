@@ -9,7 +9,7 @@ import {
 import { ApiError, loginRequest, logoutRequest } from '../api/auth'
 import { useNavigation } from './NavigationContext'
 
-export type Role = 'AC Member' | 'Observee' | 'Observer'
+export type Role = 'AC Member' | 'Observee'
 
 // a person can hold several roles at once so we keep the full list and check it with roles.includes(...).
 // ignoring single role functionality set in the draft API contract
