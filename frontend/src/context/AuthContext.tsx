@@ -1,3 +1,5 @@
+/* Context provider and hooks intentionally share this module. */
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useCallback,
@@ -23,7 +25,7 @@ interface AuthContextValue {
   roles: Role[]
   userId: string | null
   // rejects with an ApiError (its message is safe to show to the user)
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<Role[]>
   logout: () => Promise<void>
 }
 
@@ -77,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     saveSession(next)
     setSession(next)
+    return response.roles
   }, [])
 
   const logout = useCallback(async () => {

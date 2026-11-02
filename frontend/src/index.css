@@ -197,41 +197,6 @@ a {
   margin-top: 3px;
 }
 
-.login-divider {
-  display: flex;
-  align-items: center;
-  margin: 25px 0 19px;
-}
-
-.login-divider::before,
-.login-divider::after {
-  height: 1px;
-  flex: 1;
-  background: var(--border);
-  content: '';
-}
-
-.demo-logins {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
-}
-
-.button--pill {
-  min-height: 38px;
-  border-color: var(--border);
-  border-radius: 999px;
-  padding: 0 7px;
-  color: var(--green-700);
-  background: var(--white);
-  font-size: 12px;
-}
-
-.button--pill:hover {
-  border-color: var(--green-700);
-  background: #f6faf8;
-}
-
 .app-shell {
   min-height: 100vh;
 }
@@ -281,6 +246,58 @@ a {
 
 .sidebar__link--active {
   font-weight: 600;
+}
+
+.sidebar__nav-section,
+.sidebar__subnav {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebar__nav-section {
+  margin-top: 4px;
+}
+
+.sidebar__group-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 7px;
+  padding: 10px 11px;
+  color: rgb(255 255 255 / 67%);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.sidebar__group-toggle:hover,
+.sidebar__group-toggle--active {
+  color: var(--white);
+  background: rgb(255 255 255 / 6%);
+}
+
+.sidebar__group-chevron {
+  transition: transform 150ms ease;
+}
+
+.sidebar__group-chevron--open {
+  transform: rotate(180deg);
+}
+
+.sidebar__sublink {
+  padding-left: 22px;
+}
+
+.sidebar__workspace-switch {
+  margin-top: 14px;
+  border-top: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 0 0 7px 7px;
+  padding-top: 16px;
 }
 
 .sidebar__account {
@@ -1077,6 +1094,27 @@ tbody th {
     font-size: 11px;
   }
 
+  .sidebar__nav-section {
+    min-width: 155px;
+    margin-top: 0;
+  }
+
+  .sidebar__group-toggle {
+    padding: 8px 9px;
+    font-size: 10px;
+  }
+
+  .sidebar__sublink {
+    padding-left: 17px;
+  }
+
+  .sidebar__workspace-switch {
+    margin-top: 0;
+    border-top: 0;
+    border-radius: 7px;
+    padding-top: 8px;
+  }
+
   .sidebar__account {
     grid-template-columns: 1fr auto;
     align-items: center;
@@ -1196,14 +1234,6 @@ tbody th {
 }
 
 @media (max-width: 390px) {
-  .demo-logins {
-    gap: 5px;
-  }
-
-  .button--pill {
-    font-size: 10px;
-  }
-
   .dashboard-header__actions {
     align-items: stretch;
     flex-direction: column;
