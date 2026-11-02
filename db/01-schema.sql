@@ -46,6 +46,15 @@ CREATE TABLE observees (
     FOREIGN KEY (signup_course) REFERENCES courses(course_id)
 );
 
+-- dates an observee offers when signing up (several per sign-up); the observer picks one
+CREATE TABLE signup_dates (
+    observee_id INT NOT NULL,
+    signup_sem VARCHAR(20) NOT NULL,
+    offered_date DATE NOT NULL,
+    PRIMARY KEY (observee_id, signup_sem, offered_date),
+    FOREIGN KEY (observee_id, signup_sem) REFERENCES observees(observee_id, signup_sem)
+);
+
 CREATE TABLE course_levels (
     prof_id INT NOT NULL,
     course_level VARCHAR(50) NOT NULL,
@@ -73,7 +82,7 @@ CREATE TABLE assessment_committee (
 
 CREATE TABLE meetings (
     meeting_id INT AUTO_INCREMENT PRIMARY KEY,
-    meeting_date DATE NOT NULL,
+    meeting_date DATE, -- NULL until the observee confirms an observer (the date that observer picked)
 
     course_id INT NOT NULL,
     -- department VARCHAR(10) NOT NULL,
@@ -81,12 +90,35 @@ CREATE TABLE meetings (
     -- section_number VARCHAR(10) NOT NULL,
     -- semester VARCHAR(20) NOT NULL,
 
-    observer_id INT NOT NULL,
+    observer_id INT, -- NULL until the observee confirms an observer
     ac_id INT,
 
     FOREIGN KEY (course_id) REFERENCES courses(course_id),
+    -- observers come from the same pool as observees (everyone who signed up for the cycle),
+    -- so observer_id refers to observees(observee_id) instead of a separate observers table
     FOREIGN KEY (observer_id) REFERENCES observees(observee_id),
     FOREIGN KEY (ac_id) REFERENCES assessment_committee(ac_id)
+);
+
+-- one row per observer being asked to observe a meeting
+CREATE TABLE observation_requests (
+    meeting_id INT NOT NULL,
+    observer_id INT NOT NULL,
+    -- approved     AC approved this observer, the observee has not sent the request yet
+    -- pending      request sent, waiting for the observer (48 hours from sent_at)
+    -- accepted     observer accepted and picked a date (selected_date)
+    -- declined     observer declined
+    -- confirmed    observee chose this observer (meetings.observer_id and meeting_date are set)
+    -- not_selected observee chose a different observer
+    -- expired      no answer within 48 hours
+    status ENUM('approved', 'pending', 'accepted', 'declined', 'confirmed', 'not_selected', 'expired')
+        NOT NULL DEFAULT 'approved',
+    selected_date DATE, -- one of the observee's offered dates (signup_dates), set when accepting
+    sent_at DATETIME,
+    responded_at DATETIME,
+    PRIMARY KEY (meeting_id, observer_id),
+    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
+    FOREIGN KEY (observer_id) REFERENCES observees(observee_id)
 );
 
 CREATE TABLE reports (
