@@ -1,0 +1,164 @@
+import { useState, type FormEvent } from 'react'
+import { AppLink } from '../context/NavigationContext'
+
+const courses = [
+  {
+    id: 'cs-1337-002',
+    name: 'CS 1337.002 - Computer Science I',
+    schedule: 'MW 8:30-9:45 AM - ECSS 2.410',
+  },
+  {
+    id: 'cs-2336-001',
+    name: 'CS 2336.001 - Computer Science II',
+    schedule: 'TR 11:30 AM-12:45 PM - ECSW 1.315',
+  },
+]
+
+const initialDates = ['2026-11-03', '2026-11-05', '2026-11-10']
+
+function formatDate(value: string) {
+  const date = new Date(`${value}T12:00:00`)
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(date)
+}
+
+export default function ObserveeStatusPage() {
+  const [selectedCourse, setSelectedCourse] = useState(courses[0].id)
+  const [dates, setDates] = useState(initialDates)
+  const [newDate, setNewDate] = useState('')
+  const [notice, setNotice] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+
+  function addDate() {
+    if (!newDate || dates.includes(newDate)) return
+    setDates((current) => [...current, newDate].sort())
+    setNewDate('')
+  }
+
+  function submitSignUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selectedCourse) {
+      setNotice('Choose a course before submitting your sign-up.')
+      return
+    }
+    if (dates.length === 0) {
+      setNotice('Add at least one date when you can be observed.')
+      return
+    }
+    setSubmitted(true)
+    setNotice('Your sign-up has been saved. You can update your course and dates until the deadline.')
+  }
+
+  function cancelSignUp() {
+    setSelectedCourse(courses[0].id)
+    setDates(initialDates)
+    setNewDate('')
+    setSubmitted(false)
+    setNotice('Your sign-up changes were canceled.')
+  }
+
+  return (
+    <section className="observee-status-page">
+      <div className="observee-status-sidebar">
+        <section aria-labelledby="evaluation-status-title" className="evaluation-status-card">
+          <p className="evaluation-status-card__eyebrow" id="evaluation-status-title">Evaluation status</p>
+          <h1>Due this semester</h1>
+          <p>Assistant Professor - evaluated every year. Last observed Fall 2025</p>
+          <p className="evaluation-status-card__deadline">Sign up by [Oct 24]</p>
+        </section>
+
+        <section aria-labelledby="past-observations-title" className="past-observations">
+          <h2 id="past-observations-title">Past observations</h2>
+          <p>
+            <span>Fall 2025 - CS 1337</span>
+            <AppLink to="/my-observation">View</AppLink>
+          </p>
+          <p>
+            <span>Fall 2024 - CS 2336</span>
+            <AppLink to="/my-observation">View</AppLink>
+          </p>
+        </section>
+      </div>
+
+      <form className="observee-signup-form" onSubmit={submitSignUp}>
+        <header className="observee-signup-header">
+          <h2>Sign up to be observed</h2>
+          <p>Pick one course you teach this semester. Signing up also adds you to the observer pool.</p>
+        </header>
+
+        <fieldset className="course-picker">
+          <legend>Your Fall 2026 courses</legend>
+          <div className="course-options">
+            {courses.map((course) => (
+              <label
+                className={`course-option${selectedCourse === course.id ? ' course-option--selected' : ''}`}
+                key={course.id}
+              >
+                <input
+                  checked={selectedCourse === course.id}
+                  name="course"
+                  onChange={() => setSelectedCourse(course.id)}
+                  type="radio"
+                  value={course.id}
+                />
+                <span>
+                  <strong>{course.name}</strong>
+                  <small>{course.schedule}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="observee-date-picker">
+          <legend>Dates you can be observed</legend>
+          <p>Must be class days before the observation deadline. [Nov 21].</p>
+          <div className="observee-date-list">
+            {dates.map((date) => (
+              <div className="observee-date-row" key={date}>
+                <span>{formatDate(date)}</span>
+                <button
+                  aria-label={`Remove ${formatDate(date)}`}
+                  onClick={() => setDates((current) => current.filter((item) => item !== date))}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <div className="observee-date-add">
+              <input
+                aria-label="Add an available observation date"
+                max="2026-11-21"
+                min="2026-11-02"
+                onChange={(event) => setNewDate(event.target.value)}
+                type="date"
+                value={newDate}
+              />
+              <button disabled={!newDate || dates.includes(newDate)} onClick={addDate} type="button">
+                + Add date
+              </button>
+            </div>
+          </div>
+        </fieldset>
+
+        {notice && (
+          <p className={`observee-signup-notice${submitted ? ' observee-signup-notice--success' : ''}`} role="status">
+            {notice}
+          </p>
+        )}
+
+        <footer className="observee-signup-actions">
+          <button className="button button--outline" onClick={cancelSignUp} type="button">
+            Cancel
+          </button>
+          <button className="button button--primary" type="submit">
+            {submitted ? 'Update sign-up' : 'Submit sign-up'}
+          </button>
+        </footer>
+      </form>
+    </section>
+  )
+}
