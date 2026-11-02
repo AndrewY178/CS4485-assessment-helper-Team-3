@@ -25,7 +25,7 @@ services:
       network: host
     container_name: class-backend
     ports:
-      - "5000:5000"
+      - "5001:5001"
     environment:
       DB_HOST: db
       DB_PORT: 3306

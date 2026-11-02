@@ -12,7 +12,7 @@ const navItems = [
 ]
 
 export default function Sidebar() {
-  const { role } = useAuth()
+  const { roles } = useAuth()
   const logout = useLogout()
   const participantItems =
     role === 'Observee'
@@ -54,7 +54,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar__account">
-        <span className="sidebar__role">{role}</span>
+        <span className="sidebar__role">{roles.join(' · ')}</span>
         <button className="sidebar__logout" onClick={logout} type="button">
           Log out
         </button>

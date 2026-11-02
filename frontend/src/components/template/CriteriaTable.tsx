@@ -63,7 +63,7 @@ export default function CriteriaTable({
                     <span className="criteria-table__description">{criterion.description}</span>
                   </th>
                   <td>{criterion.type}</td>
-                  <td>{criterion.weight}</td>
+                  <td>{criterion.weight ?? '—'}</td>
                   <td>{criterion.required ? 'Yes' : 'No'}</td>
                   {editable && (
                     <td>

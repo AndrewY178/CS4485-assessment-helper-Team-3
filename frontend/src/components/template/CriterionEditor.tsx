@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import type { TemplateCriterion } from '../../types/template'
+import type { QuestionType, TemplateCriterion } from '../../types/template'
 
 export type CriterionInput = Omit<TemplateCriterion, 'id' | 'position'>
 
@@ -16,9 +16,17 @@ interface EditorErrors {
   weight?: string
 }
 
+const questionTypes: QuestionType[] = [
+  'Rating 1–5',
+  'Yes/No',
+  'Short Answer',
+  'Long Answer',
+]
+
 export default function CriterionEditor({ criterion, existingNames, onCancel, onSave }: CriterionEditorProps) {
   const [name, setName] = useState(criterion?.name ?? '')
   const [description, setDescription] = useState(criterion?.description ?? '')
+  const [type, setType] = useState<QuestionType>(criterion?.type ?? 'Rating 1–5')
   const [weight, setWeight] = useState(String(criterion?.weight ?? 1))
   const [required, setRequired] = useState(criterion?.required ?? true)
   const [errors, setErrors] = useState<EditorErrors>({})
@@ -34,7 +42,7 @@ export default function CriterionEditor({ criterion, existingNames, onCancel, on
       nextErrors.name = 'Criterion names must be unique.'
     }
     if (!description.trim()) nextErrors.description = 'Enter a criterion description.'
-    if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
+    if (type === 'Rating 1–5' && (!Number.isFinite(parsedWeight) || parsedWeight <= 0)) {
       nextErrors.weight = 'Weight must be a number greater than 0.'
     }
 
@@ -44,8 +52,8 @@ export default function CriterionEditor({ criterion, existingNames, onCancel, on
     onSave({
       name: name.trim(),
       description: description.trim(),
-      type: 'Rating 1–5',
-      weight: parsedWeight,
+      type,
+      weight: type === 'Rating 1–5' ? parsedWeight : null,
       required,
     })
   }
@@ -78,25 +86,33 @@ export default function CriterionEditor({ criterion, existingNames, onCancel, on
       </div>
       <div>
         <label htmlFor="criterion-type">Type</label>
-        <select disabled id="criterion-type" value="Rating 1–5">
-          <option>Rating 1–5</option>
+        <select
+          id="criterion-type"
+          onChange={(event) => setType(event.target.value as QuestionType)}
+          value={type}
+        >
+          {questionTypes.map((questionType) => (
+            <option key={questionType} value={questionType}>{questionType}</option>
+          ))}
         </select>
       </div>
-      <div>
-        <label htmlFor="criterion-weight">Weight</label>
-        <input
-          aria-describedby={errors.weight ? 'criterion-weight-error' : undefined}
-          aria-invalid={Boolean(errors.weight)}
-          id="criterion-weight"
-          inputMode="decimal"
-          min="0"
-          onChange={(event) => setWeight(event.target.value)}
-          step="any"
-          type="number"
-          value={weight}
-        />
-        {errors.weight && <span className="template-field-error" id="criterion-weight-error">{errors.weight}</span>}
-      </div>
+      {type === 'Rating 1–5' && (
+        <div>
+          <label htmlFor="criterion-weight">Weight</label>
+          <input
+            aria-describedby={errors.weight ? 'criterion-weight-error' : undefined}
+            aria-invalid={Boolean(errors.weight)}
+            id="criterion-weight"
+            inputMode="decimal"
+            min="0"
+            onChange={(event) => setWeight(event.target.value)}
+            step="any"
+            type="number"
+            value={weight}
+          />
+          {errors.weight && <span className="template-field-error" id="criterion-weight-error">{errors.weight}</span>}
+        </div>
+      )}
       <div>
         <label htmlFor="criterion-required">Required</label>
         <select

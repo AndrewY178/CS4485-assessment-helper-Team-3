@@ -203,6 +203,10 @@
 .preview-criterion legend { margin-bottom: 8px; font-size: 12px; font-weight: 600; }
 .preview-rating-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .preview-rating-options label { display: flex; align-items: center; gap: 7px; color: #4e5c57; font-size: 12px; }
+.preview-text-field { display: grid; gap: 8px; color: #394640; font-size: 12px; font-weight: 600; }
+.preview-text-field input,
+.preview-text-field textarea { width: 100%; border: 1px solid #a9c7be; border-radius: 3px; padding: 9px 10px; background: #fff; }
+.preview-text-field textarea { resize: none; }
 .template-empty--preview { margin-top: 20px; }
 
 @media (max-width: 1100px) {

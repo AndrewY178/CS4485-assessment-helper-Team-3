@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { useAuth, type Role } from '../context/AuthContext'
-import { useNavigation } from '../context/NavigationContext'
-
-const demoRoles: Role[] = ['AC Member', 'Observee', 'Observer']
+import { ApiError } from '../api/auth'
+import { useAuth } from '../context/AuthContext'
+import { AppLink, useNavigation } from '../context/NavigationContext'
+import '../styles/auth.css'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -12,13 +12,10 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>(
     {},
   )
+  const [serverError, setServerError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  function enterWorkspace(role: Role) {
-    login(role)
-    navigate('/dashboard', { replace: true })
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextErrors: typeof errors = {}
 
@@ -30,8 +27,23 @@ export default function LoginPage() {
     }
 
     setErrors(nextErrors)
-    if (Object.keys(nextErrors).length === 0) {
-      enterWorkspace('AC Member')
+    setServerError('')
+    if (Object.keys(nextErrors).length > 0) {
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await login(email.trim(), password)
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      setServerError(
+        error instanceof ApiError
+          ? error.message
+          : 'Something went wrong. Please try again.',
+      )
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -58,6 +70,12 @@ export default function LoginPage() {
           </p>
 
           <form className="login-form" noValidate onSubmit={handleSubmit}>
+            {serverError && (
+              <div className="form-banner form-banner--error" role="alert">
+                {serverError}
+              </div>
+            )}
+
             <div className="form-field">
               <label htmlFor="email">Email</label>
               <input
@@ -117,27 +135,18 @@ export default function LoginPage() {
               )}
             </div>
 
-            <button className="button button--primary login-form__submit" type="submit">
-              Log in
+            <button
+              className="button button--primary login-form__submit"
+              disabled={submitting}
+              type="submit"
+            >
+              {submitting ? 'Logging in...' : 'Log in'}
             </button>
+
+            <AppLink className="auth-link" to="/forgot-password">
+              Forgot password?
+            </AppLink>
           </form>
-
-          <div aria-hidden="true" className="login-divider">
-            <span />
-          </div>
-
-          <div aria-label="Demo quick logins" className="demo-logins">
-            {demoRoles.map((role) => (
-              <button
-                className="button button--pill"
-                key={role}
-                onClick={() => enterWorkspace(role)}
-                type="button"
-              >
-                {role}
-              </button>
-            ))}
-          </div>
         </div>
       </section>
     </main>

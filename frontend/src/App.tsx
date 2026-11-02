@@ -4,27 +4,35 @@ import { useAuth } from './context/AuthContext'
 import { useNavigation } from './context/NavigationContext'
 import DashboardPage from './pages/DashboardPage'
 import CycleKpiPage from './pages/CycleKpiPage'
-import LoginPage from './pages/LoginPage'
 import MyObservationPage from './pages/MyObservationPage'
 import MyObserversPage from './pages/MyObserversPage'
 import ObserveeStatusPage from './pages/ObserveeStatusPage'
 import ObserverRequestsPage from './pages/ObserverRequestsPage'
 import PlaceholderPage from './pages/PlaceholderPage'
+import CycleSetupPage from './pages/CycleSetupPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import LoginPage from './pages/LoginPage'
+import ObserverSelectionPage from './pages/ObserverSelectionPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import SignUpsPage from './pages/SignUpsPage'
 import TrackingPage from './pages/TrackingPage'
 import TemplatePage from './pages/TemplatePage'
 
+// pages anyone can open without being logged in
+const loggedOutPaths = ['/login', '/forgot-password', '/reset-password']
+
 export default function App() {
-  const { role } = useAuth()
+  const { roles } = useAuth()
+  const loggedIn = roles.length > 0
   const { pathname, navigate } = useNavigation()
 
   useEffect(() => {
-    if (!role && pathname !== '/login') {
+    if (!loggedIn && !loggedOutPaths.includes(pathname)) {
       navigate('/login', { replace: true })
-    } else if (role && pathname === '/') {
+    } else if (loggedIn && pathname === '/') {
       navigate('/dashboard', { replace: true })
     } else if (
-      role &&
+      loggedIn &&
       ![
         '/dashboard',
         '/template',
@@ -39,14 +47,22 @@ export default function App() {
         '/my-schedule',
         '/survey',
         '/login',
+        '/reset-password',
       ].includes(pathname)
     ) {
       navigate('/dashboard', { replace: true })
     }
-  }, [navigate, pathname, role])
+  }, [navigate, pathname, loggedIn])
 
-  if (!role) {
-    return pathname === '/login' ? <LoginPage /> : null
+  
+  if (pathname === '/reset-password') {
+    return <ResetPasswordPage />
+  }
+
+  if (!loggedIn) {
+    if (pathname === '/login') return <LoginPage />
+    if (pathname === '/forgot-password') return <ForgotPasswordPage />
+    return null
   }
 
   if (pathname === '/login') {
@@ -64,13 +80,13 @@ export default function App() {
       page = <TemplatePage />
       break
     case '/cycle-setup':
-      page = <PlaceholderPage title="Cycle setup" />
+      page = <CycleSetupPage />
       break
     case '/sign-ups':
       page = <SignUpsPage />
       break
     case '/observer-selection':
-      page = <PlaceholderPage title="Observer selection" />
+      page = <ObserverSelectionPage />
       break
     case '/tracking':
       page = <TrackingPage />
