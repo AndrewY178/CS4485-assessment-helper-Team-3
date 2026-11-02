@@ -22,7 +22,6 @@ services:
   backend:
     build:
       context: .
-      network: host
     container_name: class-backend
     ports:
       - "5001:5001"
@@ -32,6 +31,10 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
+      EMAILJS_SERVICE_ID: ${VITE_EMAILJS_SERVICE_ID:-}
+      EMAILJS_TEMPLATE_ID: ${VITE_EMAILJS_TEMPLATE_ID:-}
+      EMAILJS_PUBLIC_KEY: ${VITE_EMAILJS_PUBLIC_KEY:-}
+      EMAILJS_PASSWORD_TEMPLATE_ID: ${EMAILJS_PASSWORD_TEMPLATE_ID:-}
     volumes:
       - ./backend:/app/backend   # live code reloading during development
     depends_on:
