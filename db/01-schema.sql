@@ -34,6 +34,7 @@ CREATE TABLE courses (
     FOREIGN KEY (prof_id) REFERENCES professors(professor_id)
 );
 
+-- TODO: add status to observees so we can use it in front end tracking
 CREATE TABLE observees (
     observee_id INT,
     -- observee_department VARCHAR(100),
@@ -53,6 +54,20 @@ CREATE TABLE signup_dates (
     offered_date DATE NOT NULL,
     PRIMARY KEY (observee_id, signup_sem, offered_date),
     FOREIGN KEY (observee_id, signup_sem) REFERENCES observees(observee_id, signup_sem)
+);
+
+CREATE TABLE observer_list (
+    observee_id INT NOT NULL,
+    signup_sem VARCHAR(20) NOT NULL,
+    observer_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (observee_id, signup_sem, observer_id),
+    -- FK for the observEE
+    FOREIGN KEY (observee_id, signup_sem)
+        REFERENCES observees(observee_id, signup_sem),
+    -- FK for the observER
+    FOREIGN KEY (observer_id, signup_sem)
+        REFERENCES observees(observee_id, signup_sem)
 );
 
 CREATE TABLE course_levels (
@@ -104,6 +119,7 @@ CREATE TABLE meetings (
 CREATE TABLE observation_requests (
     meeting_id INT NOT NULL,
     observer_id INT NOT NULL,
+    -- generated    System generated this person as a potential observer
     -- approved     AC approved this observer, the observee has not sent the request yet
     -- pending      request sent, waiting for the observer (48 hours from sent_at)
     -- accepted     observer accepted and picked a date (selected_date)
@@ -111,7 +127,7 @@ CREATE TABLE observation_requests (
     -- confirmed    observee chose this observer (meetings.observer_id and meeting_date are set)
     -- not_selected observee chose a different observer
     -- expired      no answer within 48 hours
-    status ENUM('approved', 'pending', 'accepted', 'declined', 'confirmed', 'not_selected', 'expired')
+    status ENUM('generated','approved', 'pending', 'accepted', 'declined', 'confirmed', 'not_selected', 'expired')
         NOT NULL DEFAULT 'approved',
     selected_date DATE, -- one of the observee's offered dates (signup_dates), set when accepting
     sent_at DATETIME,

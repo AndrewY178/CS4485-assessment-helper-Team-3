@@ -37,3 +37,28 @@ def query(sql, params=None, fetch=True):
                 conn.close()
             except Exception as e:
                 print("Exception: " + str(e), flush=True)
+
+
+def transaction(operation):
+    """Run an operation with a dictionary cursor and commit or roll back as one unit."""
+    conn = pool.get_connection()
+    cursor = None
+    committed = False
+
+    try:
+        conn.ping(reconnect=True, attempts=3, delay=1)
+        cursor = conn.cursor(dictionary=True)
+        result = operation(cursor)
+        conn.commit()
+        committed = True
+        return result
+    finally:
+        if conn and not committed:
+            conn.rollback()
+        if cursor is not None:
+            cursor.close()
+        if conn:
+            try:
+                conn.close()
+            except Exception as e:
+                print("Exception: " + str(e), flush=True)
