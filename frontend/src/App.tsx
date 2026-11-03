@@ -9,6 +9,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import LoginPage from './pages/LoginPage'
 import MyObservationPage from './pages/MyObservationPage'
 import MyObserversPage from './pages/MyObserversPage'
+import MySchedulePage from './pages/MySchedulePage'
 import ObserveeStatusPage from './pages/ObserveeStatusPage'
 import ObserverRequestsPage from './pages/ObserverRequestsPage'
 import ObserverSelectionPage from './pages/ObserverSelectionPage'
@@ -116,7 +117,7 @@ export default function App() {
       page = <ObserverRequestsPage />
       break
     case '/my-schedule':
-      page = <PlaceholderPage title="My schedule" />
+      page = <MySchedulePage />
       break
     case '/survey':
       page = <PlaceholderPage title="Survey" />
