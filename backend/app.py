@@ -203,8 +203,30 @@ def get_observees():
     )
     return jsonify(rows)
 
-@app.route("/api/observers")
-def get_observer_list():
+# TODO: need this to return the list of observers from the observation request table that are for the inputted observee_id and signup_semester
+# @app.route("/api/observers")
+# def get_observe_list():
+#     raw_observee_id = request.args.get("observee_id", "").strip()
+#     signup_semester = request.args.get("signup_semester", "").strip()
+# 
+#     if not raw_observee_id or not signup_semester:
+#         return jsonify(error="observee_id and signup_semester are required"), 400
+# 
+#     try:
+#         observee_id = int(raw_observee_id)
+#     except ValueError:
+#         return jsonify(error="observee_id must be an integer"), 400
+# 
+#     observers = query(
+#         """
+#         SELECT 
+#         FROM observation_requests or
+#         """
+#     )
+
+
+@app.route("/api/observers", methods=["POST"])
+def generate_single_observer_list():
     raw_observee_id = request.args.get("observee_id", "").strip()
     signup_semester = request.args.get("signup_semester", "").strip()
 
