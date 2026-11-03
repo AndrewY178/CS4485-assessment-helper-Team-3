@@ -8,31 +8,11 @@ const navItems = [
   { label: 'Sign-ups', to: '/sign-ups' },
   { label: 'Observer Selection', to: '/observer-selection' },
   { label: 'Tracking', to: '/tracking' },
-  { label: 'Cycle KPI report', to: '/cycle-kpi-report' },
 ]
 
 export default function Sidebar() {
   const { roles } = useAuth()
   const logout = useLogout()
-  const participantItems =
-    role === 'Observee'
-      ? [
-          { label: 'My status', to: '/dashboard' },
-          { label: 'My observers', to: '/my-observers' },
-          { label: 'My observation', to: '/my-observation' },
-          { label: 'Observe others', to: '/observe-others' },
-          { label: 'My schedule', to: '/my-schedule' },
-          { label: 'Survey', to: '/survey' },
-        ]
-      : role === 'Observer'
-        ? [
-            { label: 'My status', to: '/dashboard' },
-            { label: 'Observe others', to: '/observe-others' },
-            { label: 'My schedule', to: '/my-schedule' },
-            { label: 'Survey', to: '/survey' },
-          ]
-        : navItems
-  const visibleNavItems = participantItems
 
   return (
     <aside className="sidebar">
@@ -41,7 +21,7 @@ export default function Sidebar() {
       </AppLink>
 
       <nav aria-label="Main navigation" className="sidebar__nav">
-        {visibleNavItems.map(({ label, to }) => (
+        {navItems.map(({ label, to }) => (
           <AppLink
             activeClassName="sidebar__link--active"
             className="sidebar__link"
