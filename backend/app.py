@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from auth import auth_bp
 
 from db import query, pool
+from datetime import datetime, timezone
 
 # use the .env at the repo root 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -110,12 +111,44 @@ COURSE_SELECT = f"""
     FROM courses c
 """
 
+CYCLE_SELECT = """
+    SELECT
+        id,
+        semester_id,
+        semester_label,
+        cycle_status,
+        signup_deadline,
+        observation_deadline,
+        feedback_deadline,
+        updated_at
+    FROM evaluation_cycles
+"""
+
+CYCLE_UPSERT = """
+    INSERT INTO evaluation_cycles (
+        semester_id,
+        semester_label,
+        cycle_status,
+        signup_deadline,
+        observation_deadline,
+        feedback_deadline
+    ) 
+    VALUES (%s, %s, %s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE
+        semester_label = VALUES(semester_label),
+        cycle_status = VALUES(cycle_status),
+        signup_deadline = VALUES(signup_deadline),
+        observation_deadline = VALUES(observation_deadline),
+        feedback_deadline = VALUES(feedback_deadline)
+"""
+
 # AC Member GET endpoints
 
 @app.route("/api/users")
 def get_users():
     rows = query(PROFESSOR_SELECT + " ORDER BY p.professor_name")
     return jsonify(rows)
+
 
 # need to get everything from user, plus signup sem, course id,
 # course dep, course number, course section, course day, course starttime
@@ -196,3 +229,61 @@ def health():
 if __name__ == "__main__":
     # host: 0.0.0.0 allows for queries from across the wifi network (not just local host)
     app.run(host="0.0.0.0", debug=True, port=5001)
+
+
+@app.route("/api/schedule") # grabs all the evaluation cycles, ordered by semester_id
+def get_schedules():
+    rows = query(CYCLE_SELECT + " ORDER BY semester_id")
+    return jsonify(rows)
+
+
+@app.route("/api/schedule/<semester_id>", methods=["PUT"])
+def save_schedule(semester_id):
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify(error="A JSON object is required"), 400
+
+    fields = [
+        "signupDeadline",
+        "observationDeadline",
+        "feedbackDeadline"
+    ]
+
+    deadlines = []
+
+    for field in fields:
+        value = data.get(field)
+
+        if not isinstance(value, str):
+            return jsonify(error=f"{field} is required"), 400
+
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                raise ValueError("Timezone is required")
+            deadlines.append(parsed.astimezone(timezone.utc))
+        except ValueError:
+            return jsonify(error=f"{field} must be a valid timezone-aware date"), 400
+
+    if not (deadlines[0] < deadlines[1] < deadlines[2]):
+        return jsonify(error="Deadlines must be in chronological order"), 400
+
+    # Temporary label until semester naming is finalized.
+    semester_label = semester_id
+
+    query(
+        CYCLE_UPSERT,
+        (
+            semester_id,
+            semester_label,
+            deadlines[0].replace(tzinfo=None),
+            deadlines[1].replace(tzinfo=None),
+            deadlines[2].replace(tzinfo=None)
+        ),
+        fetch=False
+    )
+
+    return jsonify(message="Evaluation cycle saved successfully")
+
+
