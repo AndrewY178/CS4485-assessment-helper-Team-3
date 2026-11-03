@@ -27,11 +27,10 @@ SET_PASSWORD_HOURS = 48
 RESET_PASSWORD_HOURS = 1
 MIN_PASSWORD_LENGTH = 8
 
-# roles come from the professor-subtype tables
+# roles an account can be created with. observees rows are created when a professor signs up
+# for a cycle, not here, and every professor gets the "Faculty" role (see _roles_for)
 ROLE_TABLES = {
     "AC Member": ("assessment_committee", "ac_id"),
-    "Observer": ("observers", "observer_id"),
-    "Observee": ("observees", "observee_id"),
 }
 
 
@@ -58,13 +57,11 @@ def _password_matches(stored_hash, password):
 def _roles_for(user_id):
     rows = query(
         """
-        SELECT ac.ac_id IS NOT NULL AS is_ac,
-               obr.observer_id IS NOT NULL AS is_observer,
-               obe.observee_id IS NOT NULL AS is_observee
+        SELECT p.professor_id IS NOT NULL AS is_faculty,
+               ac.ac_id IS NOT NULL AS is_ac
         FROM users u
+        LEFT JOIN professors p ON p.professor_id = u.id
         LEFT JOIN assessment_committee ac ON ac.ac_id = u.id
-        LEFT JOIN observers obr ON obr.observer_id = u.id
-        LEFT JOIN observees obe ON obe.observee_id = u.id
         WHERE u.id = %s
         """,
         (user_id,),
@@ -73,10 +70,8 @@ def _roles_for(user_id):
     roles = []
     if row.get("is_ac"):
         roles.append("AC Member")
-    if row.get("is_observer"):
-        roles.append("Observer")
-    if row.get("is_observee"):
-        roles.append("Observee")
+    if row.get("is_faculty"):
+        roles.append("Faculty")
     return roles
 
 
@@ -288,13 +283,13 @@ def create_account():
     data = json_body()
     email = (data.get("email") or "").strip()
     name = (data.get("name") or "").strip()
-    roles = data.get("roles")
+    roles = data.get("roles") or []
     username = (data.get("username") or email.split("@")[0]).strip()
 
     if "@" not in email or not name or not username:
         return error("email and name are required", 400)
-    if not isinstance(roles, list) or not roles or any(r not in ROLE_TABLES for r in roles):
-        return error(f"roles must be a non-empty list of: {', '.join(ROLE_TABLES)}", 400)
+    if not isinstance(roles, list) or any(r not in ROLE_TABLES for r in roles):
+        return error(f"roles may only contain: {', '.join(ROLE_TABLES)}", 400)
 
     try:
         with transaction() as cur:
@@ -312,4 +307,4 @@ def create_account():
         _send_password_link(email, token, "set_password", SET_PASSWORD_HOURS)
     except EmailServiceError:
         return error("The account was created, but its setup email could not be sent.", 502)
-    return jsonify(id=str(user_id), email=email, name=name, roles=list(dict.fromkeys(roles))), 201
+    return jsonify(id=str(user_id), email=email, name=name, roles=_roles_for(user_id)), 201

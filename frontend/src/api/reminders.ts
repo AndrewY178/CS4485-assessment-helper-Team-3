@@ -1,5 +1,5 @@
 import emailjs from '@emailjs/browser'
-import { signUpRequests } from '../data/signUpRequests'
+import { getSignUpRequests } from './signups'
 
 const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID?.trim()
 const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID?.trim()
@@ -15,7 +15,7 @@ interface ReminderResult {
 function getEmailJsConfig() {
   if (!serviceId || !templateId || !publicKey) {
     throw new Error(
-      'EmailJS is not configured. Add the service ID, template ID, and public key to frontend/.env.local, then restart the frontend.',
+      'EmailJS is not configured. Add the service ID, template ID, and public key to the repository-root .env file, then restart the frontend.',
     )
   }
 
@@ -45,6 +45,7 @@ If you believe you received this email by mistake, please contact your Assessmen
 export async function sendSignUpReminders(): Promise<ReminderResult> {
   const config = getEmailJsConfig()
 
+  const signUpRequests = await getSignUpRequests()
   const recipients = signUpRequests.filter(
     (request) => request.status === 'Due' || request.status === 'Overdue',
   )
