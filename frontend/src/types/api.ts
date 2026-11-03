@@ -178,16 +178,12 @@ export type ObserverSelectionStatus =
 
 export type ObserverEligibilityStatus = 'eligible' | 'unavailable'
 
+// used for returning Observerlist when using GET /api/observers?observee_id=X&signup_sem=X
 export interface ObserverCandidateResponse {
-  facultyId: string
-  name: string
-  department: string
-  relevantCourseLevel: string
+  observer_id: string
+  professor_name: string
+  professor_department: string
   currentObservationCount: number
-  remainingCapacity: number
-  scheduleCompatibility: string
-  eligibilityStatus: ObserverEligibilityStatus
-  matchingReasons: string[]
 }
 
 // PROPOSED: GET /api/observer-selection?semesterId={semesterId}
@@ -242,6 +238,21 @@ export interface TemplateCriterion {
 export interface TemplateResponse {
   version: number
   criteria: TemplateCriterion[]
+}
+
+export interface GenerateObserverListsResponse {
+  signup_semester: string
+  total_observees: number
+  generated: number
+  failed: number
+  lists: Array<{
+    observee_id: number
+    observer_count: number
+  }>
+  failures: Array<{
+    observee_id: number
+    error: string
+  }>
 }
 
 // ---------- Teacher (Observee + Observer) ----------

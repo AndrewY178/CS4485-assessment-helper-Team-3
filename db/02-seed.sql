@@ -328,6 +328,17 @@ INSERT INTO observees (observee_id, signup_sem)
   SELECT id, "Fall 1996"
  FROM users WHERE username = 'dev_user';
 
+-- add meetings for all the professors
+INSERT INTO meetings (course_id)
+SELECT o.signup_course
+FROM observees o
+WHERE o.signup_course IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM meetings m
+      WHERE m.course_id = o.signup_course
+  );
+          
 -- ---------------------------------------------------------------------------
 -- Sample data for the observer request flow (accept / reject)
 -- Each scenario is one observee's sign-up at a different stage. The offered dates fall on

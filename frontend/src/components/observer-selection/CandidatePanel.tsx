@@ -21,31 +21,25 @@ function CandidateRow({
   editable: boolean
   onToggle: () => void
 }) {
-  const unavailable = candidate.eligibilityStatus === 'unavailable'
 
   return (
-    <label className={`observer-candidate ${checked ? 'is-selected' : ''} ${unavailable ? 'is-unavailable' : ''}`}>
+    <label className={`observer-candidate ${checked ? 'is-selected' : ''}`}>
       <input
         checked={checked}
-        disabled={!editable || unavailable}
+        disabled={!editable}
         onChange={onToggle}
         type="checkbox"
       />
       <span className="observer-candidate__content">
         <span className="observer-candidate__heading">
-          <strong>{candidate.name}</strong>
-          <span className={`observer-candidate__eligibility observer-candidate__eligibility--${candidate.eligibilityStatus}`}>
-            {unavailable ? 'Unavailable' : 'Eligible'}
-          </span>
+          <strong>{candidate.professor_name}</strong>
         </span>
         <span className="observer-candidate__meta">
-          {candidate.department} · {candidate.relevantCourseLevel}
+          {candidate.professor_department}
         </span>
         <span className="observer-candidate__capacity">
-          Workload: {candidate.currentObservationCount} of 3 · {candidate.remainingCapacity} remaining
+          Workload: {candidate.currentObservationCount} of 3
         </span>
-        <span className="observer-candidate__availability">{candidate.scheduleCompatibility}</span>
-        <span className="observer-candidate__reasons">{candidate.matchingReasons.join(' · ')}</span>
       </span>
     </label>
   )
@@ -107,10 +101,10 @@ export default function CandidatePanel({
           {row.recommendations.map((candidate) => (
             <CandidateRow
               candidate={candidate}
-              checked={row.selectedCandidateIds.includes(candidate.facultyId)}
+              checked={row.selectedCandidateIds.includes(candidate.observer_id)}
               editable={editable}
-              key={candidate.facultyId}
-              onToggle={() => onToggle(candidate.facultyId)}
+              key={candidate.observer_id}
+              onToggle={() => onToggle(candidate.observer_id)}
             />
           ))}
         </fieldset>

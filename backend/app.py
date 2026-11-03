@@ -105,6 +105,7 @@ AND o.signup_sem = s.semester
         )
         AND busy.course_start_time < s.course_end_time
         AND busy.course_end_time > s.course_start_time
+LIMIT 5
   )
 """
 COURSE_SELECT = f"""
@@ -204,25 +205,41 @@ def get_observees():
     return jsonify(rows)
 
 # TODO: need this to return the list of observers from the observation request table that are for the inputted observee_id and signup_semester
-# @app.route("/api/observers")
-# def get_observe_list():
-#     raw_observee_id = request.args.get("observee_id", "").strip()
-#     signup_semester = request.args.get("signup_semester", "").strip()
-# 
-#     if not raw_observee_id or not signup_semester:
-#         return jsonify(error="observee_id and signup_semester are required"), 400
-# 
-#     try:
-#         observee_id = int(raw_observee_id)
-#     except ValueError:
-#         return jsonify(error="observee_id must be an integer"), 400
-# 
-#     observers = query(
-#         """
-#         SELECT 
-#         FROM observation_requests or
-#         """
-#     )
+@app.route("/api/observers")
+def get_observe_list():
+    raw_observee_id = request.args.get("observee_id", "").strip()
+    signup_semester = request.args.get("signup_semester", "").strip()
+
+    if not raw_observee_id or not signup_semester:
+        return jsonify(error="observee_id and signup_semester are required"), 400
+
+    try:
+        observee_id = int(raw_observee_id)
+    except ValueError:
+        return jsonify(error="observee_id must be an integer"), 400
+
+    selected = query(
+        """
+        SELECT m.meeting_id
+        FROM observees o
+        LEFT JOIN courses c ON c.course_id = o.signup_course
+        LEFT JOIN meetings m ON m.course_id = o.signup_course
+        WHERE o.observee_id = %s AND o.signup_sem = %s
+        """,
+        (observee_id, signup_semester),
+    )
+
+    observers = query(
+        """
+        SELECT ob_r.observer_id, p.professor_name, p.professor_department
+        FROM observation_requests ob_r
+        JOIN professors p ON p.professor_id = ob_r.observer_id
+        WHERE ob_r.meeting_id = %s
+        """,
+        (selected[0]["meeting_id"],)
+    )
+
+    return jsonify(observers)
 
 
 @app.route("/api/observers", methods=["POST"])
