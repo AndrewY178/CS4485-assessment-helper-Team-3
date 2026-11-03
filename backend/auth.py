@@ -1,7 +1,7 @@
 """Auth endpoints:
 POST /api/auth/login
 POST /api/auth/logout
-POST /api/auth/forgot-password (one-time link, prints to terminal for now)
+POST /api/auth/forgot-password (one-time link sent by EmailJS)
 POST /api/auth/reset-password (for both first password + reset)
 POST /api/auth/change-password  
 POST /api/users (where AC creates accounts)
@@ -17,6 +17,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from api_helpers import error, json_body, transaction
 from db import query
+from emailservice import EmailServiceError, send_email
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -93,13 +94,18 @@ def _issue_password_token(user_id, purpose, hours):
 
 
 def _send_password_link(email, token, purpose, hours):
-    # DEV ONLY: the team has not picked an email service yet, so the one-time link is printed
-    # to the terminal. will replace later.
     base = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    print(
-        f"[DEV EMAIL] to={email} purpose={purpose} expires_in_hours={hours} "
-        f"link={base}/reset-password?token={token}",
-        flush=True,
+    link = f"{base}/reset-password?token={token}"
+    action = "set up" if purpose == "set_password" else "reset"
+    message = (
+        f"Use this link to {action} your Assessment Helper password:\n\n"
+        f"{link}\n\nThis link expires in {hours} hours and can "
+        "only be used once."
+    )
+    send_email(
+        email,
+        message,
+        template_id=os.getenv("EMAILJS_PASSWORD_TEMPLATE_ID") or None,
     )
 
 
@@ -194,7 +200,10 @@ def forgot_password():
         # links requested here always last RESET_PASSWORD_HOURS, so the page can state one
         # exact time without revealing anything about the account
         token = _issue_password_token(user["id"], purpose, RESET_PASSWORD_HOURS)
-        _send_password_link(email, token, purpose, RESET_PASSWORD_HOURS)
+        try:
+            _send_password_link(email, token, purpose, RESET_PASSWORD_HOURS)
+        except EmailServiceError:
+            return error("Unable to send the email right now. Please try again later.", 502)
 
     # same answer whether or not the email has an account
     return jsonify(
@@ -294,5 +303,8 @@ def create_account():
         return error("An account with that email or username already exists", 409)
 
     token = _issue_password_token(user_id, "set_password", SET_PASSWORD_HOURS)
-    _send_password_link(email, token, "set_password", SET_PASSWORD_HOURS)
+    try:
+        _send_password_link(email, token, "set_password", SET_PASSWORD_HOURS)
+    except EmailServiceError:
+        return error("The account was created, but its setup email could not be sent.", 502)
     return jsonify(id=str(user_id), email=email, name=name, roles=_roles_for(user_id)), 201

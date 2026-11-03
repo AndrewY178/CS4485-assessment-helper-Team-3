@@ -2,10 +2,12 @@ import type { ObserveeResponse } from '../types/api'
 import { get } from './client'
 
 
-export function getObservees(signupSemester: string) {
-  const params = new URLSearchParams({
-    signup_semester: signupSemester,
-  })
+export function getObservees(signupSemester?: string) {
+  const params = new URLSearchParams()
+  if (signupSemester) {
+    params.set('signup_semester', signupSemester)
+  }
 
-  return get<ObserveeResponse[]>(`/api/observees?${params.toString()}`)
+  const query = params.toString()
+  return get<ObserveeResponse[]>(`/api/observees${query ? `?${query}` : ''}`)
 }

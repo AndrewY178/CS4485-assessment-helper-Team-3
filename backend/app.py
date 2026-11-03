@@ -122,10 +122,23 @@ def get_users():
 @app.route("/api/observees")
 def get_observees():
     signup_semester = request.args.get("signup_semester", "").strip()
-    print(signup_semester, flush=True)
 
     if not signup_semester:
-        return jsonify(error="signup_semester is required"), 400
+        semesters = query(
+            """
+            SELECT signup_sem
+            FROM observees
+            WHERE signup_sem IS NOT NULL
+            GROUP BY signup_sem
+            ORDER BY
+                CAST(SUBSTRING_INDEX(signup_sem, ' ', -1) AS UNSIGNED) DESC,
+                FIELD(SUBSTRING_INDEX(signup_sem, ' ', 1), 'Spring', 'Summer', 'Fall') DESC
+            LIMIT 1
+            """
+        )
+        if not semesters:
+            return jsonify([])
+        signup_semester = semesters[0]["signup_sem"]
 
     rows = query(
         OBSERVEE_SELECT

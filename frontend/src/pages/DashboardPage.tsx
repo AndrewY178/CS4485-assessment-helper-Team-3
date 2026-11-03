@@ -4,14 +4,40 @@ import HireLevelTable from '../components/HireLevelTable'
 import { MailIcon } from '../components/Icons'
 import StatCard from '../components/StatCard'
 import Stepper from '../components/Stepper'
+import { sendSignUpReminders } from '../api/reminders'
 import { stats } from '../data/mockData'
 
 export default function DashboardPage() {
   const [notice, setNotice] = useState('')
+  const [sendError, setSendError] = useState('')
+  const [sendingReminders, setSendingReminders] = useState(false)
 
   function showNotice(message: string) {
     setNotice(message)
     window.setTimeout(() => setNotice(''), 3200)
+  }
+
+  async function handleSendReminders() {
+    setNotice('')
+    setSendError('')
+    setSendingReminders(true)
+
+    try {
+      const result = await sendSignUpReminders()
+      setNotice(
+        result.testMode
+          ? `Test email sent. In production, ${result.recipientCount} faculty would receive individual reminders.`
+          : `${result.sentCount} sign-up reminders sent.`,
+      )
+    } catch (error) {
+      setSendError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to send reminders. Please try again.',
+      )
+    } finally {
+      setSendingReminders(false)
+    }
   }
 
   return (
@@ -21,11 +47,12 @@ export default function DashboardPage() {
         <div className="dashboard-header__actions">
           <button
             className="button button--text"
-            onClick={() => showNotice('Reminders are ready to send.')}
+            disabled={sendingReminders}
+            onClick={() => void handleSendReminders()}
             type="button"
           >
             <MailIcon className="button__icon" />
-            Send reminders
+            {sendingReminders ? 'Sending reminders...' : 'Send reminders'}
           </button>
           <button
             className="button button--primary"
@@ -40,6 +67,11 @@ export default function DashboardPage() {
       {notice && (
         <div className="toast" role="status">
           {notice}
+        </div>
+      )}
+      {sendError && (
+        <div className="toast toast--error" role="alert">
+          {sendError}
         </div>
       )}
 

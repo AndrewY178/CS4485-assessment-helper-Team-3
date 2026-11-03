@@ -379,6 +379,12 @@ a {
   font-size: 13px;
 }
 
+.toast--error {
+  border-color: #efc9c6;
+  color: #a33f38;
+  background: #fbefee;
+}
+
 .dashboard-section {
   padding: 24px 0 28px;
   border-top: 1px solid var(--border);

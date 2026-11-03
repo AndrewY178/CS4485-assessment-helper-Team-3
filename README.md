@@ -103,6 +103,30 @@ The application uses two main workspaces:
 
 Faculty members can participate as both Observers and Observees. AC Members also have access to the Faculty Workspace.
 
+### EmailJS email delivery
+
+The backend's reusable `emailservice.py` sends emails through EmailJS. Password setup and reset links use this service. The dashboard's **Send reminders** button currently uses the frontend EmailJS integration and sends to sign-up rows marked `Due` or `Overdue`.
+
+1. In EmailJS, create a service and a template. Set the template's **To Email** field to `{{to_email}}`. In the email body, use `Hello {{to_name}},` and `{{message}}`.
+2. The backend reads these settings from the repository-root `.env` file. The Compose configuration passes them into the backend container:
+
+   ```dotenv
+   VITE_EMAILJS_SERVICE_ID=your_service_id
+   VITE_EMAILJS_TEMPLATE_ID=your_template_id
+   VITE_EMAILJS_PUBLIC_KEY=your_public_key
+   VITE_EMAILJS_TEST_RECIPIENT=your_test_inbox@example.com
+   EMAILJS_PASSWORD_TEMPLATE_ID=your_password_email_template_id
+   ```
+
+   The password template ID is optional; when absent, password emails use `VITE_EMAILJS_TEMPLATE_ID`. The template should use the `to_email`, `to_name`, and `message` variables. Restart the backend container after editing `.env`:
+
+   ```bash
+   docker compose up -d --force-recreate backend
+   ```
+3. While running the frontend with `npm run dev`, **Send reminders** sends one test email to the configured test inbox, with the due/overdue faculty listed in the message. It does not send to the sample faculty addresses.
+
+The sign-up rows are currently hard-coded demo data. A production build sends an individual email to each due/overdue row, so replace those rows with verified, live sign-up records before using the feature in production. Restrict the EmailJS service to the intended website origins and configure its sending limits.
+
 ## Project Structure
 
 ```text
@@ -188,6 +212,8 @@ docker compose up -d --build
 ```
 
 This deletes all local data, which is fine for development.
+
+If you need to keep data from the earlier schema, do not reset the volume. Back up the database and apply the one-time additive migration in `db/migrations/20261102_add_signup_columns.sql` with a MySQL client. It adds the sign-up fields required by the current API and maps existing courses to their observees. The API uses the latest semester found in the database when no semester is supplied.
 
 ### Troubleshooting
 
