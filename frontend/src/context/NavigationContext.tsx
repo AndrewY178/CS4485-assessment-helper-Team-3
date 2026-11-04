@@ -9,6 +9,9 @@ import {
   type ReactNode,
 } from 'react'
 
+// Navigation links and hooks share the provider's private context.
+/* eslint-disable react-refresh/only-export-components */
+
 interface NavigationContextValue {
   pathname: string
   navigate: (path: string, options?: { replace?: boolean }) => void
