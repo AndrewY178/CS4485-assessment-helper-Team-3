@@ -36,7 +36,7 @@ INSERT INTO users (username, email, password_hash) VALUES
 
 -- Add fake display names.
 -- The professor_id is the corresponding users.id.
-INSERT INTO professors (professor_id, professor_name, professor_rank, professor_department)
+INSERT INTO professors (professor_id, professor_name, professor_rank, professor_department, last_sem_observed)
 SELECT
     id,
     CASE username
@@ -63,16 +63,17 @@ SELECT
         WHEN 'prof_09' THEN 'Full'
         WHEN 'prof_10' THEN 'Full'
     END,
-    'CS'
+    'CS',
+    NULL
 FROM users
 WHERE username LIKE 'prof_%';
 
 -- Make each professor an observee.
 INSERT INTO observees (
-    observee_id, last_sem_observed, hiring_sem, signup_sem
+    observee_id, hiring_sem, signup_sem
 )
 SELECT
-    id, NULL, 'Fall 2024',
+    id, 'Fall 2024',
     CASE 
         WHEN username = 'prof_10' THEN 'Spring 2026'
         ELSE 'Fall 2026' 

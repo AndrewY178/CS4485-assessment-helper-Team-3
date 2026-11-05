@@ -25,7 +25,7 @@ PROFESSOR_SELECT = f"""
         u.username,
         p.professor_rank AS prof_rank,
         p.professor_department AS department,
-        o.last_sem_observed,
+        p.last_sem_observed,
         o.hiring_sem,
         ac.ac_id IS NOT NULL AS is_ac_member
     FROM professors AS p
@@ -41,7 +41,7 @@ OBSERVEE_SELECT = f"""
         u.email,
         p.professor_rank AS prof_rank,
         p.professor_department AS department,
-        o.last_sem_observed,
+        p.last_sem_observed,
         o.hiring_sem,
         o.signup_sem,
         c.course_id,
@@ -177,6 +177,21 @@ def generate_observer_list(observee_id, signup_semester):
                     for candidate in candidates
                 ],
             )
+        if len(candidates) == 0:
+            status = 'no_observers'
+        else:
+            status = 'generated'
+        cursor.execute(
+            """
+            UPDATE observees
+            SET status = %s
+            WHERE observee_id = %s
+            AND signup_sem = %s
+            """,
+            (status, observee_id, signup_semester)
+        )
+
+        
 
     transaction(replace_rows)
     return candidates
