@@ -44,6 +44,7 @@ OBSERVEE_SELECT = f"""
         p.last_sem_observed,
         o.hiring_sem,
         o.signup_sem,
+        o.status,
         c.course_id,
         c.department AS course_department,
         c.course_number,
@@ -76,9 +77,10 @@ WITH selected_observee AS (
       AND o.signup_sem = %s
 )
 SELECT DISTINCT
-    p.professor_id AS id,
-    p.professor_name AS name,
-    p.professor_department AS department
+    p.professor_id AS observer_id,
+    p.professor_name,
+    p.professor_department,
+    0 AS currentObservationCount
 FROM selected_observee s
 JOIN courses matching
     ON matching.semester = s.semester
@@ -173,7 +175,7 @@ def generate_observer_list(observee_id, signup_semester):
                 VALUES (%s, %s, 'generated')
                 """,
                 [
-                    (course["meeting_id"], candidate["id"])
+                    (course["meeting_id"], candidate["observer_id"])
                     for candidate in candidates
                 ],
             )
@@ -259,7 +261,11 @@ def get_observe_list():
 
     observers = query(
         """
-        SELECT ob_r.observer_id, p.professor_name, p.professor_department
+        SELECT DISTINCT
+            ob_r.observer_id,
+            p.professor_name,
+            p.professor_department,
+            0 AS currentObservationCount
         FROM observation_requests ob_r
         JOIN professors p ON p.professor_id = ob_r.observer_id
         WHERE ob_r.meeting_id = %s

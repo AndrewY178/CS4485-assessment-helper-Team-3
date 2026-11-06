@@ -53,7 +53,7 @@ export default function CandidatePanel({
   onReopen,
   onToggle,
 }: CandidatePanelProps) {
-  const editable = row.status === 'pending-review'
+  const editable = row.status === 'generated'
   const selectedCount = row.selectedCandidateIds.length
   const canApprove = editable && selectedCount >= 1 && selectedCount <= 5
 
@@ -72,7 +72,7 @@ export default function CandidatePanel({
 
       {row.warning && <p className="observer-candidate-panel__warning" role="alert">{row.warning}</p>}
 
-      {row.status === 'not-generated' && (
+      {row.status === 'not_generated' && (
         <div className="observer-candidate-panel__empty">
           <h3>Recommendations not generated</h3>
           <p>Run matching for this faculty member or use the page-level action.</p>
@@ -82,7 +82,7 @@ export default function CandidatePanel({
         </div>
       )}
 
-      {row.status === 'no-eligible-observers' && (
+      {row.status === 'no_observers' && (
         <div className="observer-candidate-panel__empty observer-candidate-panel__empty--alert">
           <h3>No eligible observers found</h3>
           <p>This Observee remains unmatched. Retry matching when availability or workload changes.</p>
@@ -135,7 +135,7 @@ export default function CandidatePanel({
         </div>
       )}
 
-      {row.status === 'invitations-sent' && (
+      {row.status === 'invitations_sent' && (
         <p className="observer-candidate-panel__state-note">
           Invitations have been sent. This candidate list is now read-only.
         </p>

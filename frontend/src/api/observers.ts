@@ -11,6 +11,21 @@ export function generateObserverLists(signupSemester: string) {
   )
 }
 
+// generates a single observer list (used when AC member wants to regenerate the list for a single person)
+export function regenerateObserverList(
+  observeeId: string,
+  signupSemester: string,
+) {
+  const params = new URLSearchParams({
+    observee_id: observeeId,
+    signup_semester: signupSemester,
+  })
+
+  return post<ObserverCandidateResponse[]>(
+    `/api/observers?${params.toString()}`,
+  )
+}
+
 export function getObserverList(
   observeeId: string,
   signupSemester: string,

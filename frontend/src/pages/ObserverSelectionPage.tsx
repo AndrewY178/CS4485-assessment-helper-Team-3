@@ -5,12 +5,11 @@ import ObserveeSelectionTable from '../components/observer-selection/ObserveeSel
 import SelectionSummary from '../components/observer-selection/SelectionSummary'
 import { useAuth } from '../context/AuthContext'
 import {
-  getMockRecommendations,
   observerSelectionContext,
 } from '../data/observerSelectionMockData'
 import type { ObserverCandidateResponse, ObserverSelectionResponse, ObserveeResponse} from '../types/api'
 import '../styles/observer-selection.css'
-import { generateObserverLists, getObserverList } from '../api/observers'
+import { generateObserverLists, getObserverList, regenerateObserverList } from '../api/observers'
 import { ApiError } from '../api/auth'
 import { getObservees } from '../api/observees'
 
@@ -44,11 +43,7 @@ function toObserverSelectionRow(
   return {
     observationId: String(observee.id),
     semesterId: observee.signup_sem,
-    observee: {
-      facultyId: String(observee.id),
-      name: observee.name,
-      department: observee.department,
-    },
+    observee: observee,
     course: {
       code: [
         observee.course_department,
@@ -60,7 +55,7 @@ function toObserverSelectionRow(
       startTime: formatTime(observee.course_start_time),
       endTime: formatTime(observee.course_end_time),
     },
-    status: 'not-generated',
+    status: observee.status,
     recommendations: [],
     selectedCandidateIds: [],
   }
@@ -80,7 +75,7 @@ function generatedState(
   if (recommendations.length === 0) {
     return {
       ...row,
-      status: 'no-eligible-observers',
+      status: 'no_observers',
       recommendations,
       selectedCandidateIds: [],
       warning: 'No eligible observers were found for this course and meeting time.',
@@ -89,7 +84,7 @@ function generatedState(
 
   return {
     ...row,
-    status: 'pending-review',
+    status: 'generated',
     recommendations: recommendations.slice(0, 5),
     selectedCandidateIds: selectedEligibleIds(recommendations),
     warning: recommendations.length < 5
@@ -104,7 +99,6 @@ export default function ObserverSelectionPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [attempts, setAttempts] = useState<Record<string, number>>({ 'observation-205': 1 })
   const [approvalOpen, setApprovalOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
@@ -172,7 +166,7 @@ export default function ObserverSelectionPage() {
 
     try {
       const recommendations = await getObserverList(
-        row.observee.facultyId,
+        row.observee.id,
         row.semesterId,
       )
 
@@ -182,9 +176,7 @@ export default function ObserverSelectionPage() {
               ...currentRow,
               recommendations,
               selectedCandidateIds: [],
-              status: recommendations.length > 0
-                ? 'pending-review'
-                : 'no-eligible-observers',
+              status: row.observee.status,
               warning: recommendations.length === 0
                 ? 'No observers were found for this Observee.'
                 : undefined,
@@ -206,7 +198,7 @@ export default function ObserverSelectionPage() {
       return
     }
 
-    const notGenerated = rows.filter((row) => row.status === 'not-generated')
+    const notGenerated = rows.filter((row) => row.status === 'not_generated')
     if (notGenerated.length === 0) {
       showNotice('No Observees are waiting for initial recommendations.')
       return
@@ -216,49 +208,35 @@ export default function ObserverSelectionPage() {
       const result = await generateObserverLists(
         observerSelectionContext.currentSemester.label,
       )
-      const generatedByObservee = new Map(
-        result.lists.map((item) => [
-          String(item.observee_id),
-          item.observer_count,
-        ]),
+
+      const refreshedObservees = await getObservees(
+        observerSelectionContext.currentSemester.label,
       )
 
-      const failedObservees = new Map(
+      const failures = new Map(
         result.failures.map((item) => [
           String(item.observee_id),
           item.error,
         ]),
       )
 
-      setRows((current) => current.map((row) => {
-        const observeeId = row.observee.facultyId
-        const observerCount = generatedByObservee.get(observeeId)
-        const failure = failedObservees.get(observeeId)
-      
-        if (failure) {
-          return {
-            ...row,
-            status: 'no-eligible-observers',
-            recommendations: [],
-            selectedCandidateIds: [],
-            warning: failure,
-          }
-        }
-      
-        if (observerCount === undefined) {
-          return row
-        }
-      
-        return {
-          ...row,
-          status: observerCount > 0
-            ? 'pending-review'
-            : 'no-eligible-observers',
-          warning: observerCount > 0
-            ? undefined
-            : 'No eligible observers were found.',
-        }
-      }))
+      const nextRows = refreshedObservees.map((observee) => {
+        const row = toObserverSelectionRow(observee)
+        const failure = failures.get(String(observee.id))
+
+        return failure
+          ? { ...row, warning: failure}
+          : row
+      })
+
+      setRows(nextRows)
+
+      setSelectedId((currentSelectedId) => (
+        nextRows.some((row) => row.observationId === currentSelectedId)
+          ? currentSelectedId
+          : nextRows[0]?.observationId ?? null
+      ))
+
       showNotice(
         `Generated observer lists for ${result.generated} Observee${
           result.generated === 1 ? '' : 's'
@@ -272,45 +250,51 @@ export default function ObserverSelectionPage() {
       )
     }
   }
-    // TODO(API): POST /api/observer-selection/run with the current semester ID.
-    // Flask will generate matches only for signed-up, not-yet-generated records.
-    // setRows((current) => current.map((row) => {
-      // if (row.status !== 'not-generated') return row
-      // return generatedState(row, getMockRecommendations(row.observationId, attempts[row.observationId] ?? 0))
-    // }))
-    // setAttempts((current) => {
-      // const next = { ...current }
-      // notGenerated.forEach((row) => { next[row.observationId] = (next[row.observationId] ?? 0) + 1 })
-      // return next
-    // })
-    // showNotice(`Mock matching generated recommendations for ${notGenerated.length} Observee${notGenerated.length === 1 ? '' : 's'}. No lists were approved.`)
-  // }
 
-  function refreshRecommendations() {
-    if (selectedRow.status === 'invitations-sent' || selectedRow.status === 'approved') return
-    const attempt = attempts[selectedRow.observationId] ?? 0
+  async function refreshRecommendations() {
+    if (selectedRow.status === 'invitations_sent' || selectedRow.status === 'approved') return
 
     // TODO(API): POST /api/observer-selection/run with observationId to refresh
     // one record. The backend must re-check availability and capacity.
-    const recommendations = getMockRecommendations(selectedRow.observationId, attempt)
-    setRows((current) => current.map((row) => (
-      row.observationId === selectedRow.observationId
-        ? generatedState(row, recommendations)
-        : row
-    )))
-    setAttempts((current) => ({
-      ...current,
-      [selectedRow.observationId]: attempt + 1,
-    }))
-    showNotice(
-      recommendations.length > 0
-        ? `Mock recommendations refreshed for ${selectedRow.observee.name}.`
-        : `No eligible observers were found for ${selectedRow.observee.name}.`,
-    )
+    try {
+      const recommendations = await regenerateObserverList(
+        selectedRow.observee.id,
+        selectedRow.semesterId,
+      )
+      console.log(recommendations)
+
+      setRows((current) => current.map((row) => (
+        row.observationId === selectedRow.observationId
+          ? {
+              ...row,
+              status: row.observee.status,
+              recommendations,
+              selectedCandidateIds: [],
+              warning: recommendations.length === 0
+                ? 'No eligible observers were found for this course and meeting time.'
+                : recommendations.length < 5
+                  ? `Only ${recommendations.length} eligible observer candidates were found.`
+                  : undefined,
+            }
+          : row
+      )))
+
+      showNotice(
+        recommendations.length > 0
+          ? `Recommendations refreshed for ${selectedRow.observee.name}.`
+          : `No eligible observers were found for ${selectedRow.observee.name}.`,
+      )
+    } catch (caught) {
+      showNotice(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Unable to regenerate the observer list.',
+      )
+    }
   }
 
   function toggleCandidate(facultyId: string) {
-    if (selectedRow.status !== 'pending-review') return
+    if (selectedRow.status !== 'generated') return
 
     setRows((current) => current.map((row) => {
       if (row.observationId !== selectedRow.observationId) return row
@@ -349,11 +333,12 @@ export default function ObserverSelectionPage() {
     showNotice('Candidate list approved in this browser session. No invitations were sent.')
   }
 
+  // TODO: make this send a put request that updates the observee status
   function reopenList() {
     if (selectedRow.status !== 'approved') return
     setRows((current) => current.map((row) => (
       row.observationId === selectedRow.observationId
-        ? { ...row, status: 'pending-review' }
+        ? { ...row, status: 'generated' }
         : row
     )))
     showNotice('Approved list reopened for editing in this browser session.')
