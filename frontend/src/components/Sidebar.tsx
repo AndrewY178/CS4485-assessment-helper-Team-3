@@ -15,7 +15,7 @@ const acNavItems = [
 
 const observerItems = [
   { label: 'Observe Others', to: '/observe-others' },
-  { label: 'My Schedule', to: '/my-schedule' },
+  { label: 'Observation Forms', to: '/observation-forms' },
 ]
 
 const observeeItems = [
@@ -119,6 +119,13 @@ export default function Sidebar() {
               to="/faculty/status"
             >
               My Status
+            </AppLink>
+            <AppLink
+              activeClassName="sidebar__link--active"
+              className="sidebar__link"
+              to="/my-schedule"
+            >
+              My Schedule
             </AppLink>
             <FacultyGroup
               id="observer-navigation"

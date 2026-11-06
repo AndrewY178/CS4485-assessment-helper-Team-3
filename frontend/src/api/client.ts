@@ -2,12 +2,31 @@ import { ApiError } from './auth'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
-export async function get<T>(path: string): Promise<T> {
+interface GetOptions {
+  signal?: AbortSignal
+  token?: string
+}
+
+export async function get<T>(
+  path: string,
+  options: GetOptions = {},
+): Promise<T> {
+  const headers: Record<string, string> = {}
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`
+  }
+
   let response: Response
 
   try {
-    response = await fetch(`${BASE_URL}${path}`)
-  } catch {
+    response = await fetch(`${BASE_URL}${path}`, {
+      headers,
+      signal: options.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error
+    }
     throw new ApiError(0, 'Cannot reach the server.')
   }
 

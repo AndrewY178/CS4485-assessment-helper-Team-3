@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, forgotPasswordRequest } from '../api/auth'
-import AuthLayout from '../components/AuthLayout'
-import { AppLink } from '../context/NavigationContext'
+import { ApiError, forgotPasswordRequest } from '../../api/auth'
+import AuthLayout from '../../components/AuthLayout'
+import { AppLink } from '../../context/NavigationContext'
 
 // 60 -> "1 hour", 120 -> "2 hours", 30 -> "30 minutes"
 function formatDuration(minutes: number) {
