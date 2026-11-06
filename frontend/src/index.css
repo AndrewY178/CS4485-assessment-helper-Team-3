@@ -1216,8 +1216,63 @@ tbody th {
 
 .tracking-summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 48px;
+}
+
+.tracking-state {
+  display: flex;
+  max-width: 680px;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 40px;
+  border: 1px solid #a9c4b9;
+  border-radius: 8px;
+  padding: 20px 22px;
+  background: rgb(255 255 255 / 24%);
+}
+
+.tracking-state strong {
+  color: var(--ink);
+  font-family: 'Newsreader', serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.tracking-state p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tracking-state .button {
+  margin-left: auto;
+}
+
+.tracking-state--error {
+  border-color: #caa58b;
+}
+
+.tracking-loading-indicator {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  border: 3px solid #bfd4cb;
+  border-top-color: var(--green-700);
+  border-radius: 50%;
+  animation: tracking-spin 800ms linear infinite;
+}
+
+@keyframes tracking-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tracking-loading-indicator {
+    animation: none;
+  }
 }
 
 .tracking-summary__item {
