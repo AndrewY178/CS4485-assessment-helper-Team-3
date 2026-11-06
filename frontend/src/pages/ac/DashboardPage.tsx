@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import AlertPanel from '../components/AlertPanel'
-import HireLevelTable from '../components/HireLevelTable'
-import { MailIcon } from '../components/Icons'
-import StatCard from '../components/StatCard'
-import Stepper from '../components/Stepper'
-import { sendSignUpReminders } from '../api/reminders'
-import { stats } from '../data/mockData'
+import AlertPanel from '../../components/AlertPanel'
+import HireLevelTable from '../../components/HireLevelTable'
+import { MailIcon } from '../../components/Icons'
+import StatCard from '../../components/StatCard'
+import Stepper from '../../components/Stepper'
+import { sendSignUpReminders } from '../../api/reminders'
+import { stats } from '../../data/mockData'
 
 export default function DashboardPage() {
   const [notice, setNotice] = useState('')

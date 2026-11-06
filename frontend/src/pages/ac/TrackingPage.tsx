@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
-import { ApiError } from '../api/auth'
-import { getObservationTracking } from '../api/tracking'
-import { useAuth } from '../context/AuthContext'
+import { ApiError } from '../../api/auth'
+import { getObservationTracking } from '../../api/tracking'
+import { useAuth } from '../../context/AuthContext'
 import type {
   TrackingObservation,
   TrackingResponse,
   TrackingStatus,
-} from '../types/tracking'
+} from '../../types/tracking'
 
 // TODO(API): Replace this with the active semester from Cycle Setup once that
 // endpoint is available. Tracking records themselves always come from Flask.

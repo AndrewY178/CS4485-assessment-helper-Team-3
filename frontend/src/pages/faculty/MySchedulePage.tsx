@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
-import { ApiError } from '../api/auth'
+import { ApiError } from '../../api/auth'
 import {
   getFacultySchedule,
   TEMPORARY_SCHEDULE_SEMESTER,
-} from '../api/schedule'
-import { useAuth } from '../context/AuthContext'
+} from '../../api/schedule'
+import { useAuth } from '../../context/AuthContext'
 import type {
   FacultyScheduleObservation,
   FacultyScheduleResponse,
-} from '../types/schedule'
-import '../styles/my-schedule.css'
+} from '../../types/schedule'
+import '../../styles/my-schedule.css'
 
 type ScheduleViewState =
   | { status: 'loading' }

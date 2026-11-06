@@ -2,23 +2,23 @@ import { useEffect } from 'react'
 import AppLayout from './components/AppLayout'
 import { useAuth } from './context/AuthContext'
 import { useNavigation } from './context/NavigationContext'
-import CycleKpiPage from './pages/CycleKpiPage'
-import CycleSetupPage from './pages/CycleSetupPage'
-import DashboardPage from './pages/DashboardPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import LoginPage from './pages/LoginPage'
-import MyObservationPage from './pages/MyObservationPage'
-import MyObserversPage from './pages/MyObserversPage'
-import MySchedulePage from './pages/MySchedulePage'
-import ObservationFormsPage from './pages/ObservationFormsPage'
-import ObserveeStatusPage from './pages/ObserveeStatusPage'
-import ObserverRequestsPage from './pages/ObserverRequestsPage'
-import ObserverSelectionPage from './pages/ObserverSelectionPage'
-import PlaceholderPage from './pages/PlaceholderPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import SignUpsPage from './pages/SignUpsPage'
-import TemplatePage from './pages/TemplatePage'
-import TrackingPage from './pages/TrackingPage'
+import CycleKpiPage from './pages/ac/CycleKpiPage'
+import CycleSetupPage from './pages/ac/CycleSetupPage'
+import DashboardPage from './pages/ac/DashboardPage'
+import ObserverSelectionPage from './pages/ac/ObserverSelectionPage'
+import SignUpsPage from './pages/ac/SignUpsPage'
+import TemplatePage from './pages/ac/TemplatePage'
+import TrackingPage from './pages/ac/TrackingPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import LoginPage from './pages/auth/LoginPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import FacultyStatusPage from './pages/faculty/FacultyStatusPage'
+import MySchedulePage from './pages/faculty/MySchedulePage'
+import MyObservationPage from './pages/faculty/observee/MyObservationPage'
+import MyObserversPage from './pages/faculty/observee/MyObserversPage'
+import ObservationFormsPage from './pages/faculty/observer/ObservationFormsPage'
+import ObserverRequestsPage from './pages/faculty/observer/ObserverRequestsPage'
+import PlaceholderPage from './pages/shared/PlaceholderPage'
 
 const loggedOutPaths = ['/login', '/forgot-password', '/reset-password']
 
@@ -107,7 +107,7 @@ export default function App() {
       page = <CycleKpiPage />
       break
     case '/faculty/status':
-      page = <ObserveeStatusPage />
+      page = <FacultyStatusPage />
       break
     case '/my-observers':
       page = <MyObserversPage />

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ApiError } from '../api/auth'
+import { ApiError } from '../../../api/auth'
 import {
   getFacultySchedule,
   TEMPORARY_SCHEDULE_SEMESTER,
-} from '../api/schedule'
-import { useAuth } from '../context/AuthContext'
-import type { FacultyScheduleObservation } from '../types/schedule'
-import '../styles/observation-forms.css'
+} from '../../../api/schedule'
+import { useAuth } from '../../../context/AuthContext'
+import type { FacultyScheduleObservation } from '../../../types/schedule'
+import '../../../styles/observation-forms.css'
 
 type ObservationFormsState =
   | { status: 'loading' }
