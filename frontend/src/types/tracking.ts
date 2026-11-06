@@ -1,7 +1,8 @@
 export type TrackingStatus =
-  | 'waiting-on-observer'
+  | 'observer-needed'
   | 'scheduled'
-  | 'report-submitted'
+  | 'report-pending'
+  | 'completed'
   | 'needs-attention'
 
 export interface TrackingRequestCounts {

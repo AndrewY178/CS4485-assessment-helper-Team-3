@@ -14,16 +14,18 @@ import type {
 const TRACKING_SEMESTER = 'Fall 2026'
 
 const statusLabels: Record<TrackingStatus, string> = {
-  'waiting-on-observer': 'Waiting on observer',
+  'observer-needed': 'Observer needed',
   scheduled: 'Scheduled',
-  'report-submitted': 'Report submitted',
+  'report-pending': 'Report pending',
+  completed: 'Completed',
   'needs-attention': 'Needs attention',
 }
 
 const summaryStatuses: TrackingStatus[] = [
-  'waiting-on-observer',
+  'observer-needed',
   'scheduled',
-  'report-submitted',
+  'report-pending',
+  'completed',
   'needs-attention',
 ]
 
@@ -68,6 +70,7 @@ export default function TrackingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState<TrackingStatus | 'all'>('all')
   const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
@@ -115,8 +118,11 @@ export default function TrackingPage() {
     [tracking],
   )
   const filteredObservations = useMemo(
-    () => observations.filter((observation) => matchesSearch(observation, search)),
-    [observations, search],
+    () => observations.filter((observation) => (
+      matchesSearch(observation, search)
+      && (selectedStatus === 'all' || observation.status === selectedStatus)
+    )),
+    [observations, search, selectedStatus],
   )
   const summary = useMemo(
     () => summaryStatuses.map((status) => ({
@@ -178,16 +184,32 @@ export default function TrackingPage() {
 
           <section aria-labelledby="observations-heading" className="observations-section">
             <h2 id="observations-heading">All observations</h2>
-            <label className="search-field observations-search">
-              <Search aria-hidden="true" className="search-field__icon" />
-              <span className="visually-hidden">Search observee or observer</span>
-              <input
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search observee or observer"
-                type="search"
-                value={search}
-              />
-            </label>
+            <div className="observations-toolbar">
+              <label className="search-field observations-search">
+                <Search aria-hidden="true" className="search-field__icon" />
+                <span className="visually-hidden">Search observee or observer</span>
+                <input
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search observee or observer"
+                  type="search"
+                  value={search}
+                />
+              </label>
+              <label className="stage-filter-select">
+                <span>Stage filter</span>
+                <select
+                  onChange={(event) => setSelectedStatus(event.target.value as TrackingStatus | 'all')}
+                  value={selectedStatus}
+                >
+                  <option value="all">All stages</option>
+                  {summaryStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {statusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="screen-table-scroll observations-table-scroll">
               <table className="screen-table observations-table">
                 <thead>
@@ -216,7 +238,7 @@ export default function TrackingPage() {
                       <td className="screen-table__empty" colSpan={5}>
                         {observations.length === 0
                           ? `No observation records were found for ${tracking.signupSemester}.`
-                          : 'No observations match your search.'}
+                          : 'No observations match your search and stage filters.'}
                       </td>
                     </tr>
                   )}
