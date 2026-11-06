@@ -372,13 +372,6 @@ export default function ObserverSelectionPage() {
 
       {notice && <div className="observer-selection-toast" role="status">{notice}</div>}
 
-      <div className="observer-selection-notices">
-        <p>
-          <strong>Mock deadline check:</strong> Sign-up deadline has passed. Replace this value with Cycle Setup or Flask data later.
-        </p>
-        <p>Prototype actions are stored only in React state and will be lost on refresh.</p>
-      </div>
-
       <SelectionSummary rows={rows} />
 
       <div className="observer-selection-layout">
