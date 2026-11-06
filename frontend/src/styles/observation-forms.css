@@ -1,0 +1,164 @@
+.observation-forms-page {
+  max-width: 980px;
+}
+
+.observation-forms-state {
+  display: flex;
+  max-width: 680px;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid #a9c4b9;
+  border-radius: 10px;
+  padding: 25px 27px;
+  background: rgb(255 255 255 / 24%);
+}
+
+.observation-forms-state h2,
+.observation-forms-heading h2 {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-family: 'Newsreader', serif;
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.observation-forms-state p,
+.observation-forms-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.observation-forms-state .button {
+  margin-left: auto;
+}
+
+.observation-forms-state--error {
+  display: block;
+  border-color: #caa58b;
+}
+
+.observation-forms-state--error .button {
+  margin: 17px 0 0;
+}
+
+.observation-forms-state__eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  color: #9b4e22;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.observation-forms-loading {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  border: 3px solid #bfd4cb;
+  border-top-color: var(--green-700);
+  border-radius: 50%;
+  animation: observation-forms-spin 800ms linear infinite;
+}
+
+.observation-forms-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 19px;
+}
+
+.observation-forms-note {
+  max-width: 390px;
+  text-align: right;
+}
+
+.observation-forms-table-scroll {
+  border: 1px solid var(--border);
+  background: rgb(255 255 255 / 18%);
+}
+
+.observation-forms-table {
+  min-width: 720px;
+}
+
+.observation-forms-table td strong,
+.observation-forms-table td strong + span {
+  display: block;
+}
+
+.observation-forms-table td strong + span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.observation-form-status {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.observation-form-status--pending {
+  color: #7a4a0e;
+  background: #f5e5bd;
+}
+
+.observation-form-status--submitted {
+  color: var(--green-900);
+  background: #d6e8e0;
+}
+
+.observation-form-entry {
+  min-height: 32px;
+  border: 1px solid #a5b8b0;
+  border-radius: 3px;
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+}
+
+.observation-form-entry:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.observation-forms-empty {
+  border: 1px dashed #a9c4b9;
+  border-radius: 8px;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@keyframes observation-forms-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .observation-forms-loading {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .observation-forms-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .observation-forms-note {
+    text-align: left;
+  }
+}

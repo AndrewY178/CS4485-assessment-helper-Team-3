@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../api/auth'
-import { getFacultySchedule } from '../api/schedule'
+import {
+  getFacultySchedule,
+  TEMPORARY_SCHEDULE_SEMESTER,
+} from '../api/schedule'
 import { useAuth } from '../context/AuthContext'
 import type {
   FacultyScheduleObservation,
   FacultyScheduleResponse,
 } from '../types/schedule'
 import '../styles/my-schedule.css'
-
-// TODO(API): Replace this temporary semester with the active cycle returned by
-// Flask once the active-cycle endpoint is available.
-const SCHEDULE_SEMESTER = 'Fall 2026'
 
 type ScheduleViewState =
   | { status: 'loading' }
@@ -175,7 +174,11 @@ export default function MySchedulePage() {
     if (!token) return
 
     const controller = new AbortController()
-    void getFacultySchedule(SCHEDULE_SEMESTER, token, controller.signal)
+    void getFacultySchedule(
+      TEMPORARY_SCHEDULE_SEMESTER,
+      token,
+      controller.signal,
+    )
       .then((schedule) => {
         if (!controller.signal.aborted) {
           setViewState({ status: 'ready', schedule })

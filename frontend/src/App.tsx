@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage'
 import MyObservationPage from './pages/MyObservationPage'
 import MyObserversPage from './pages/MyObserversPage'
 import MySchedulePage from './pages/MySchedulePage'
+import ObservationFormsPage from './pages/ObservationFormsPage'
 import ObserveeStatusPage from './pages/ObserveeStatusPage'
 import ObserverRequestsPage from './pages/ObserverRequestsPage'
 import ObserverSelectionPage from './pages/ObserverSelectionPage'
@@ -36,6 +37,7 @@ const facultyPaths = [
   '/my-observers',
   '/my-observation',
   '/observe-others',
+  '/observation-forms',
   '/my-schedule',
   '/survey',
 ]
@@ -115,6 +117,9 @@ export default function App() {
       break
     case '/observe-others':
       page = <ObserverRequestsPage />
+      break
+    case '/observation-forms':
+      page = <ObservationFormsPage />
       break
     case '/my-schedule':
       page = <MySchedulePage />
