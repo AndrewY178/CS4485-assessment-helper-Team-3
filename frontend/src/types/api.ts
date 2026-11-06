@@ -128,6 +128,16 @@ export interface UserDetailResponse extends UserResponse {
   email: string
 }
 
+// keep this updated with possible status column values from DB
+// IMPORTANT: update SelectionStatusBadge.tsx and SelectionSummary.tsx when this gets updated
+export type ObserveeStatus = 
+  | 'not_generated'
+  | 'generated'
+  | 'no_observers'
+  | 'approved'
+  | 'invitations_sent'
+  | 'manual'
+
 export interface ObserveeResponse extends UserDetailResponse {
   signup_sem: string
   course_id: string | null
@@ -138,6 +148,7 @@ export interface ObserveeResponse extends UserDetailResponse {
   course_day: string | null
   course_start_time: string | null
   course_end_time: string | null
+  status: ObserveeStatus
 }
 
 // POST/PUT /api/users/{id}
@@ -169,25 +180,21 @@ export interface SetObserversRequest {
 
 // ---------- Observer selection ----------
 
-export type ObserverSelectionStatus =
-  | 'not-generated'
-  | 'pending-review'
-  | 'approved'
-  | 'invitations-sent'
-  | 'no-eligible-observers'
+// export type ObserverSelectionStatus =
+//   | 'not-generated'
+//   | 'pending-review'
+//   | 'approved'
+//   | 'invitations-sent'
+//   | 'no-eligible-observers'
 
 export type ObserverEligibilityStatus = 'eligible' | 'unavailable'
 
+// used for returning Observerlist when using GET /api/observers?observee_id=X&signup_sem=X
 export interface ObserverCandidateResponse {
-  facultyId: string
-  name: string
-  department: string
-  relevantCourseLevel: string
+  observer_id: string
+  professor_name: string
+  professor_department: string
   currentObservationCount: number
-  remainingCapacity: number
-  scheduleCompatibility: string
-  eligibilityStatus: ObserverEligibilityStatus
-  matchingReasons: string[]
 }
 
 // PROPOSED: GET /api/observer-selection?semesterId={semesterId}
@@ -196,11 +203,7 @@ export interface ObserverCandidateResponse {
 export interface ObserverSelectionResponse {
   observationId: string
   semesterId: string
-  observee: {
-    facultyId: string
-    name: string
-    department: string
-  }
+  observee: ObserveeResponse
   course: {
     code: string
     section: string
@@ -209,7 +212,7 @@ export interface ObserverSelectionResponse {
     startTime: string
     endTime: string
   }
-  status: ObserverSelectionStatus
+  status: ObserveeStatus
   recommendations: ObserverCandidateResponse[]
   selectedCandidateIds: string[]
   warning?: string
@@ -242,6 +245,21 @@ export interface TemplateCriterion {
 export interface TemplateResponse {
   version: number
   criteria: TemplateCriterion[]
+}
+
+export interface GenerateObserverListsResponse {
+  signup_semester: string
+  total_observees: number
+  generated: number
+  failed: number
+  lists: Array<{
+    observee_id: number
+    observer_count: number
+  }>
+  failures: Array<{
+    observee_id: number
+    error: string
+  }>
 }
 
 // ---------- Teacher (Observee + Observer) ----------
