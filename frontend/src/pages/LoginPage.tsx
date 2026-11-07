@@ -34,8 +34,11 @@ export default function LoginPage() {
 
     setSubmitting(true)
     try {
-      await login(email.trim(), password)
-      navigate('/dashboard', { replace: true })
+      const roles = await login(email.trim(), password)
+      navigate(
+        roles.includes('AC Member') ? '/dashboard' : '/faculty/status',
+        { replace: true },
+      )
     } catch (error) {
       setServerError(
         error instanceof ApiError

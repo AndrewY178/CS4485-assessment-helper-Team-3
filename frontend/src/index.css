@@ -283,6 +283,50 @@ a {
   font-weight: 600;
 }
 
+.sidebar__nav-section,
+.sidebar__subnav {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebar__nav-section {
+  margin-top: 4px;
+}
+
+.sidebar__group-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 7px;
+  padding: 10px 11px;
+  color: rgb(255 255 255 / 67%);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.sidebar__group-toggle:hover {
+  color: var(--white);
+  background: rgb(255 255 255 / 6%);
+}
+
+.sidebar__group-chevron {
+  transition: transform 150ms ease;
+}
+
+.sidebar__group-chevron--open {
+  transform: rotate(180deg);
+}
+
+.sidebar__sublink {
+  padding-left: 22px;
+}
+
 .sidebar__account {
   display: grid;
   gap: 9px;
@@ -294,6 +338,22 @@ a {
 .sidebar__role {
   color: rgb(255 255 255 / 83%);
   font-size: 12px;
+}
+
+.sidebar__role-switch {
+  width: 100%;
+  border: 1px solid rgb(255 255 255 / 38%);
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: var(--white);
+  background: rgb(255 255 255 / 8%);
+  font-size: 11px;
+  text-align: left;
+}
+
+.sidebar__role-switch:hover {
+  border-color: rgb(255 255 255 / 65%);
+  background: rgb(255 255 255 / 14%);
 }
 
 .sidebar__logout {
@@ -2094,11 +2154,29 @@ tbody th {
     font-size: 11px;
   }
 
+  .sidebar__nav-section {
+    min-width: 155px;
+    margin-top: 0;
+  }
+
+  .sidebar__group-toggle {
+    padding: 8px 9px;
+    font-size: 10px;
+  }
+
+  .sidebar__sublink {
+    padding-left: 17px;
+  }
+
   .sidebar__account {
     grid-template-columns: 1fr auto;
     align-items: center;
     margin-top: 13px;
     padding-top: 10px;
+  }
+
+  .sidebar__role-switch {
+    width: auto;
   }
 
   .app-main {
