@@ -14,25 +14,7 @@ const navItems = [
 export default function Sidebar() {
   const { roles } = useAuth()
   const logout = useLogout()
-  const participantItems =
-    role === 'Observee'
-      ? [
-          { label: 'My status', to: '/dashboard' },
-          { label: 'My observers', to: '/my-observers' },
-          { label: 'My observation', to: '/my-observation' },
-          { label: 'Observe others', to: '/observe-others' },
-          { label: 'My schedule', to: '/my-schedule' },
-          { label: 'Survey', to: '/survey' },
-        ]
-      : role === 'Observer'
-        ? [
-            { label: 'My status', to: '/dashboard' },
-            { label: 'Observe others', to: '/observe-others' },
-            { label: 'My schedule', to: '/my-schedule' },
-            { label: 'Survey', to: '/survey' },
-          ]
-        : navItems
-  const visibleNavItems = participantItems
+  const visibleNavItems = roles.length > 0 ? navItems : []
 
   return (
     <aside className="sidebar">

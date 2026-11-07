@@ -6,7 +6,6 @@ import DashboardPage from './pages/DashboardPage'
 import CycleKpiPage from './pages/CycleKpiPage'
 import MyObservationPage from './pages/MyObservationPage'
 import MyObserversPage from './pages/MyObserversPage'
-import ObserveeStatusPage from './pages/ObserveeStatusPage'
 import ObserverRequestsPage from './pages/ObserverRequestsPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import CycleSetupPage from './pages/CycleSetupPage'
@@ -69,12 +68,7 @@ export default function App() {
     return <LoginPage />
   }
 
-  let page =
-    role === 'Observee'
-      ? <ObserveeStatusPage />
-      : role === 'Observer'
-        ? <PlaceholderPage title="My status" />
-        : <DashboardPage />
+  let page = <DashboardPage />
   switch (pathname) {
     case '/template':
       page = <TemplatePage />
@@ -101,10 +95,7 @@ export default function App() {
       page = <MyObservationPage />
       break
     case '/observe-others':
-      page =
-        role === 'Observee'
-          ? <PlaceholderPage title="Observe others" />
-          : <ObserverRequestsPage />
+      page = <ObserverRequestsPage />
       break
     case '/my-schedule':
       page = <PlaceholderPage title="My schedule" />

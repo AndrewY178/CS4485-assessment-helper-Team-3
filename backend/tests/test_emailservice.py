@@ -39,10 +39,35 @@ class SendEmailTests(unittest.TestCase):
                 "message": "Please sign up",
             },
         )
+        self.assertEqual(request.get_header("Origin"), "http://localhost:5173")
+        self.assertEqual(request.get_header("Referer"), "http://localhost:5173/")
+        self.assertIn("Mozilla/5.0", request.get_header("User-agent"))
         self.assertEqual(
             mock_urlopen.call_args.kwargs["timeout"],
             15,
         )
+
+    @patch.dict(
+        os.environ,
+        {
+            "EMAILJS_SERVICE_ID": "service",
+            "EMAILJS_TEMPLATE_ID": "template",
+            "EMAILJS_PUBLIC_KEY": "public",
+            "FRONTEND_URL": "https://assessment.example.com/",
+        },
+        clear=True,
+    )
+    @patch("emailservice.urlopen")
+    def test_uses_configured_frontend_origin(self, mock_urlopen):
+        response = MagicMock()
+        response.status = 200
+        mock_urlopen.return_value.__enter__.return_value = response
+
+        send_email("faculty@example.com", "Please sign up")
+
+        request = mock_urlopen.call_args.args[0]
+        self.assertEqual(request.get_header("Origin"), "https://assessment.example.com")
+        self.assertEqual(request.get_header("Referer"), "https://assessment.example.com/")
 
     @patch.dict(os.environ, {}, clear=True)
     def test_missing_configuration_raises_clear_error(self):
