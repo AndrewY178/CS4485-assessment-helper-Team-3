@@ -95,7 +95,7 @@ def _issue_password_token(user_id, purpose, hours):
 
 def _send_password_link(email, token, purpose, hours):
     base = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    link = f"{base}/reset-password?token={token}"
+    link = f"{base}/reset-password?token={token}&purpose={purpose}"
     action = "set up" if purpose == "set_password" else "reset"
     message = (
         f"Use this link to {action} your Assessment Helper password:\n\n"
@@ -163,11 +163,17 @@ def login():
     if not email or not password:
         return error("Email and password are required", 400)
 
-    rows = query("SELECT id, password_hash FROM users WHERE email = %s AND is_active = TRUE", (email,))
+    rows = query(
+        "SELECT id, password_hash, email_verified_at FROM users "
+        "WHERE email = %s AND is_active = TRUE",
+        (email,),
+    )
     user = rows[0] if rows else None
     # unknown email, no password set yet, and wrong password all get the same answer
     if user is None or not _password_matches(user["password_hash"], password):
         return error("Invalid email or password", 401)
+    if user["email_verified_at"] is None:
+        return error("Verify your email using the link we sent before logging in.", 403)
 
     token = _new_token()
     query(
@@ -193,10 +199,18 @@ def forgot_password():
     if not email:
         return error("Email is required", 400)
 
-    rows = query("SELECT id, password_hash FROM users WHERE email = %s AND is_active = TRUE", (email,))
+    rows = query(
+        "SELECT id, password_hash, email_verified_at FROM users "
+        "WHERE email = %s AND is_active = TRUE",
+        (email,),
+    )
     if rows:
         user = rows[0]
-        purpose = "set_password" if user["password_hash"] is None else "reset_password"
+        purpose = (
+            "set_password"
+            if user["password_hash"] is None or user["email_verified_at"] is None
+            else "reset_password"
+        )
         # links requested here always last RESET_PASSWORD_HOURS, so the page can state one
         # exact time without revealing anything about the account
         token = _issue_password_token(user["id"], purpose, RESET_PASSWORD_HOURS)
@@ -224,7 +238,8 @@ def reset_password():
 
     rows = query(
         """
-        SELECT t.id AS token_id, t.user_id
+        SELECT t.id AS token_id, t.user_id, t.purpose,
+               u.password_hash, u.email_verified_at
         FROM password_tokens t
         JOIN users u ON u.id = t.user_id
         WHERE t.token_hash = %s
@@ -236,19 +251,46 @@ def reset_password():
     )
     if not rows:
         return error("This link is invalid or has expired", 400)
-    token_id, user_id = rows[0]["token_id"], rows[0]["user_id"]
+    token = rows[0]
+    token_id, user_id = token["token_id"], token["user_id"]
+    purpose = token["purpose"]
+    if purpose == "reset_password" and (
+        token["password_hash"] is None or token["email_verified_at"] is None
+    ):
+        return error("This link is invalid or has expired", 400)
 
     claimed = False
     with transaction() as cur:
         # claim the token first, so two simultaneous uses cannot both succeed
-        cur.execute("UPDATE password_tokens SET used_at = NOW() WHERE id = %s AND used_at IS NULL", (token_id,))
+        cur.execute(
+            "UPDATE password_tokens SET used_at = NOW() "
+            "WHERE id = %s AND used_at IS NULL AND expires_at > NOW()",
+            (token_id,),
+        )
         claimed = cur.rowcount == 1
         if claimed:
-            cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (generate_password_hash(new_password), user_id))
+            if purpose == "set_password":
+                cur.execute(
+                    "UPDATE users SET password_hash = %s, email_verified_at = NOW() "
+                    "WHERE id = %s",
+                    (generate_password_hash(new_password), user_id),
+                )
+            else:
+                cur.execute(
+                    "UPDATE users SET password_hash = %s WHERE id = %s",
+                    (generate_password_hash(new_password), user_id),
+                )
             cur.execute("UPDATE sessions SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (user_id,))
     if not claimed:
         return error("This link is invalid or has expired", 400)
-    return jsonify(message="Password updated")
+    return jsonify(
+        message=(
+            "Email verified and password set"
+            if purpose == "set_password"
+            else "Password updated"
+        ),
+        purpose=purpose,
+    )
 
 
 @auth_bp.post("/api/auth/change-password")

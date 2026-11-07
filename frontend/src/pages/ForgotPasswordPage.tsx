@@ -55,8 +55,7 @@ export default function ForgotPasswordPage() {
           </div>
           {import.meta.env.DEV && (
             <p className="auth-note">
-              Development: email sending is not set up yet, so the link is
-              printed in the backend terminal.
+              Check your inbox and spam folder for the password link.
             </p>
           )}
           <AppLink className="auth-link" to="/login">

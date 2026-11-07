@@ -7,6 +7,7 @@ from flask_cors import CORS
 from mysql.connector import IntegrityError
 from dotenv import load_dotenv
 from auth import auth_bp
+from reminders import reminders_bp
 
 from db import query, pool
 
@@ -16,6 +17,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 app = Flask(__name__)
 CORS(app)
 app.register_blueprint(auth_bp)
+app.register_blueprint(reminders_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
