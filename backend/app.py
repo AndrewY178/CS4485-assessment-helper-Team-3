@@ -9,6 +9,7 @@ from mysql.connector import Error, IntegrityError
 from dotenv import load_dotenv
 from auth import ac_required, auth_bp, faculty_required
 from reminders import reminders_bp
+from signup_dates import signup_dates_bp
 
 from db import query, pool, transaction
 
@@ -19,6 +20,7 @@ app = Flask(__name__)
 CORS(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(reminders_bp)
+app.register_blueprint(signup_dates_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
