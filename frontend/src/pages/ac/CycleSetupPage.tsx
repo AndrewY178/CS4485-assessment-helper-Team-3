@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import ConfirmDeadlineChangeDialog from '../components/cycle/ConfirmDeadlineChangeDialog'
-import CycleTimelinePreview from '../components/cycle/CycleTimelinePreview'
-import DeadlineField from '../components/cycle/DeadlineField'
-import { useAuth } from '../context/AuthContext'
-import { initialCycleRecords, type MockCycleRecord } from '../data/cycleMockData'
-import type { SaveEvaluationCycleRequest } from '../types/api'
-import '../styles/cycle-setup.css'
+import ConfirmDeadlineChangeDialog from '../../components/cycle/ConfirmDeadlineChangeDialog'
+import CycleTimelinePreview from '../../components/cycle/CycleTimelinePreview'
+import DeadlineField from '../../components/cycle/DeadlineField'
+import { useAuth } from '../../context/AuthContext'
+import { initialCycleRecords, type MockCycleRecord } from '../../data/cycleMockData'
+import type { SaveEvaluationCycleRequest } from '../../types/api'
+import '../../styles/cycle-setup.css'
 
 type DeadlineKey = keyof SaveEvaluationCycleRequest
 type DeadlineErrors = Partial<Record<DeadlineKey, string>>

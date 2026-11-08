@@ -35,6 +35,10 @@ services:
       EMAILJS_TEMPLATE_ID: ${VITE_EMAILJS_TEMPLATE_ID:-}
       EMAILJS_PUBLIC_KEY: ${VITE_EMAILJS_PUBLIC_KEY:-}
       EMAILJS_PASSWORD_TEMPLATE_ID: ${EMAILJS_PASSWORD_TEMPLATE_ID:-}
+      EMAILJS_REMINDER_TEMPLATE_ID: ${EMAILJS_REMINDER_TEMPLATE_ID:-}
+      EMAILJS_TEST_RECIPIENT: ${VITE_EMAILJS_TEST_RECIPIENT:-}
+      REMINDER_TEST_MODE: ${REMINDER_TEST_MODE:-true}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     volumes:
       - ./backend:/app/backend   # live code reloading during development
     depends_on:

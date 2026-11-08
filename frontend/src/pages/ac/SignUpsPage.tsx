@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
-import { ApiError } from '../api/auth'
+import { ApiError } from '../../api/auth'
 import {
   getSignUpRequests,
   type SignUpRequest,
   type SignUpStatus,
-} from '../api/signups'
+} from '../../api/signups'
 
 const pageSize = 8
 

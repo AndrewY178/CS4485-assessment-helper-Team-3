@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { AppLink } from '../context/NavigationContext'
+import { AppLink } from '../../context/NavigationContext'
 
 const courses = [
   {
@@ -24,7 +24,7 @@ function formatDate(value: string) {
   }).format(date)
 }
 
-export default function ObserveeStatusPage() {
+export default function FacultyStatusPage() {
   const [selectedCourse, setSelectedCourse] = useState(courses[0].id)
   const [dates, setDates] = useState(initialDates)
   const [newDate, setNewDate] = useState('')

@@ -7,6 +7,11 @@ from urllib.request import Request, urlopen
 
 EMAILJS_SEND_URL = "https://api.emailjs.com/api/v1.0/email/send"
 EMAILJS_TIMEOUT_SECONDS = 15
+EMAILJS_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/130.0.0.0 Safari/537.36"
+)
 
 
 class EmailServiceError(RuntimeError):
@@ -45,6 +50,8 @@ def send_email(to_email, message, *, to_name="", template_id=None):
     if not to_email.strip():
         raise ValueError("to_email is required")
 
+    origin = _setting("FRONTEND_URL") or "http://localhost:5173"
+    origin = origin.rstrip("/")
     payload = {
         "service_id": service_id,
         "template_id": selected_template_id,
@@ -58,7 +65,12 @@ def send_email(to_email, message, *, to_name="", template_id=None):
     request = Request(
         EMAILJS_SEND_URL,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Origin": origin,
+            "Referer": f"{origin}/",
+            "User-Agent": EMAILJS_USER_AGENT,
+        },
         method="POST",
     )
 

@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError } from '../api/auth'
-import { useAuth } from '../context/AuthContext'
-import { AppLink, useNavigation } from '../context/NavigationContext'
-import '../styles/auth.css'
+import { ApiError } from '../../api/auth'
+import { useAuth } from '../../context/AuthContext'
+import { AppLink, useNavigation } from '../../context/NavigationContext'
+import '../../styles/auth.css'
 
 export default function LoginPage() {
   const { login } = useAuth()

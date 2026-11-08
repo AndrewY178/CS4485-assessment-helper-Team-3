@@ -24,7 +24,9 @@ interface Session {
 
 interface AuthContextValue {
   roles: Role[]
+  token: string | null
   userId: string | null
+  token: string | null
   // rejects with an ApiError (its message is safe to show to the user)
   login: (email: string, password: string) => Promise<Role[]>
   logout: () => Promise<void>
@@ -109,7 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       roles: session?.roles ?? [],
+      token: session?.token ?? null,
       userId: session?.userId ?? null,
+      token: session?.token ?? null,
       login,
       logout,
       switchRoleForTesting,

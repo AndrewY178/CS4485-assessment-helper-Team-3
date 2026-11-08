@@ -32,7 +32,8 @@ INSERT INTO users (username, email, password_hash) VALUES
     ('prof_07', 'professor07@example.test', NULL),
     ('prof_08', 'professor08@example.test', NULL),
     ('prof_09', 'professor09@example.test', NULL),
-    ('prof_10', 'professor10@example.test', NULL);
+    ('prof_10', 'professor10@example.test', NULL),
+    ('prof_11', 'professor11@example.test', NULL);
 
 -- Add fake display names.
 -- The professor_id is the corresponding users.id.
@@ -50,6 +51,7 @@ SELECT
         WHEN 'prof_08' THEN 'Harry Styles'
         WHEN 'prof_09' THEN 'Inigo Montoya'
         WHEN 'prof_10' THEN 'John Jones'
+        WHEN 'prof_11' THEN 'T1 FAKER'
     END,
     CASE username
         WHEN 'prof_01' THEN 'Assistant'
@@ -62,6 +64,7 @@ SELECT
         WHEN 'prof_08' THEN 'Full'
         WHEN 'prof_09' THEN 'Full'
         WHEN 'prof_10' THEN 'Full'
+        WHEN 'prof_11' THEN 'Full'
     END,
     'CS',
     NULL
@@ -292,6 +295,26 @@ SELECT
 FROM users
 WHERE username = 'prof_10';
 
+INSERT INTO courses (
+    department, course_number, section_number, course_name,
+    semester, course_description, course_day,
+    course_start_time, course_end_time, room_number, prof_id
+)
+SELECT 
+    'CS',
+    '2026',
+    '001',
+    'Special Topics in CS',
+    'Fall 2026',
+    'LEAGUE OF LEGENDS',
+    'MW',
+    '17:30:00',
+    '18:45:00',
+    'Korea 1.210',
+    id
+FROM users
+WHERE username = 'prof_11';
+
 -- add the courses the prof wants observed
 UPDATE observees o
 JOIN courses c
@@ -315,6 +338,10 @@ WHERE c.department = 'CS';
 -- DEV ONLY: delete this account (and don't run this seed file) before any real deployment
 INSERT INTO users (username, email, password_hash) VALUES
   ('dev_user', 'dev@example.com', 'scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636');
+
+UPDATE users
+SET email_verified_at = CURRENT_TIMESTAMP
+WHERE password_hash IS NOT NULL;
 
 INSERT INTO professors (professor_id, professor_name)
   SELECT id, 'Dev' FROM users WHERE username = 'dev_user';
