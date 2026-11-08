@@ -1,11 +1,11 @@
-import type { ObserverSelectionResponse, ObserverSelectionStatus } from '../../types/api'
+import type { ObserverSelectionResponse, ObserveeStatus } from '../../types/api'
 
-const summaryItems: Array<{ status?: ObserverSelectionStatus; label: string }> = [
+const summaryItems: Array<{ status?: ObserveeStatus; label: string }> = [
   { label: 'Faculty signed up' },
-  { status: 'not-generated', label: 'Not generated' },
-  { status: 'pending-review', label: 'Pending review' },
+  { status: 'not_generated', label: 'Not generated' },
+  { status: 'generated', label: 'Pending review' },
   { status: 'approved', label: 'Approved' },
-  { status: 'no-eligible-observers', label: 'Unmatched' },
+  { status: 'no_observers', label: 'Unmatched' },
 ]
 
 export default function SelectionSummary({ rows }: { rows: ObserverSelectionResponse[] }) {

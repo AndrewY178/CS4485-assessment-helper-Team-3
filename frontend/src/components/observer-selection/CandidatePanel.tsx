@@ -21,31 +21,25 @@ function CandidateRow({
   editable: boolean
   onToggle: () => void
 }) {
-  const unavailable = candidate.eligibilityStatus === 'unavailable'
 
   return (
-    <label className={`observer-candidate ${checked ? 'is-selected' : ''} ${unavailable ? 'is-unavailable' : ''}`}>
+    <label className={`observer-candidate ${checked ? 'is-selected' : ''}`}>
       <input
         checked={checked}
-        disabled={!editable || unavailable}
+        disabled={!editable}
         onChange={onToggle}
         type="checkbox"
       />
       <span className="observer-candidate__content">
         <span className="observer-candidate__heading">
-          <strong>{candidate.name}</strong>
-          <span className={`observer-candidate__eligibility observer-candidate__eligibility--${candidate.eligibilityStatus}`}>
-            {unavailable ? 'Unavailable' : 'Eligible'}
-          </span>
+          <strong>{candidate.professor_name}</strong>
         </span>
         <span className="observer-candidate__meta">
-          {candidate.department} · {candidate.relevantCourseLevel}
+          {candidate.professor_department}
         </span>
         <span className="observer-candidate__capacity">
-          Workload: {candidate.currentObservationCount} of 3 · {candidate.remainingCapacity} remaining
+          Workload: {candidate.currentObservationCount} of 3
         </span>
-        <span className="observer-candidate__availability">{candidate.scheduleCompatibility}</span>
-        <span className="observer-candidate__reasons">{candidate.matchingReasons.join(' · ')}</span>
       </span>
     </label>
   )
@@ -59,7 +53,7 @@ export default function CandidatePanel({
   onReopen,
   onToggle,
 }: CandidatePanelProps) {
-  const editable = row.status === 'pending-review'
+  const editable = row.status === 'generated'
   const selectedCount = row.selectedCandidateIds.length
   const canApprove = editable && selectedCount >= 1 && selectedCount <= 5
 
@@ -78,7 +72,7 @@ export default function CandidatePanel({
 
       {row.warning && <p className="observer-candidate-panel__warning" role="alert">{row.warning}</p>}
 
-      {row.status === 'not-generated' && (
+      {row.status === 'not_generated' && (
         <div className="observer-candidate-panel__empty">
           <h3>Recommendations not generated</h3>
           <p>Run matching for this faculty member or use the page-level action.</p>
@@ -88,7 +82,7 @@ export default function CandidatePanel({
         </div>
       )}
 
-      {row.status === 'no-eligible-observers' && (
+      {row.status === 'no_observers' && (
         <div className="observer-candidate-panel__empty observer-candidate-panel__empty--alert">
           <h3>No eligible observers found</h3>
           <p>This Observee remains unmatched. Retry matching when availability or workload changes.</p>
@@ -107,10 +101,10 @@ export default function CandidatePanel({
           {row.recommendations.map((candidate) => (
             <CandidateRow
               candidate={candidate}
-              checked={row.selectedCandidateIds.includes(candidate.facultyId)}
+              checked={row.selectedCandidateIds.includes(candidate.observer_id)}
               editable={editable}
-              key={candidate.facultyId}
-              onToggle={() => onToggle(candidate.facultyId)}
+              key={candidate.observer_id}
+              onToggle={() => onToggle(candidate.observer_id)}
             />
           ))}
         </fieldset>
@@ -141,7 +135,7 @@ export default function CandidatePanel({
         </div>
       )}
 
-      {row.status === 'invitations-sent' && (
+      {row.status === 'invitations_sent' && (
         <p className="observer-candidate-panel__state-note">
           Invitations have been sent. This candidate list is now read-only.
         </p>

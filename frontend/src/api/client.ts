@@ -39,19 +39,41 @@ export async function get<T>(
   return data as T
 }
 
-export async function post<T>(path: string, token: string): Promise<T> {
+export async function post<T>(
+  path: string,
+  options: { body?: unknown; token?: string } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {}
+
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`
+  }
+
   let response: Response
 
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers,
+      body:
+        options.body !== undefined
+          ? JSON.stringify(options.body)
+          : undefined
     })
   } catch {
     throw new ApiError(0, 'Cannot reach the server.')
   }
 
+  if (response.status === 204) {
+    return undefined as T
+  }
+
   const data = await response.json().catch(() => ({}))
+
   if (!response.ok) {
     throw new ApiError(response.status, data.error ?? 'Something went wrong.')
   }

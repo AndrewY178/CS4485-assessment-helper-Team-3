@@ -144,11 +144,11 @@
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
-.observer-selection-status--not-generated { color: #606a70; background: #dde4e0; }
-.observer-selection-status--pending-review { color: #775119; background: #f3e8d4; }
+.observer-selection-status--not_generated { color: #606a70; background: #dde4e0; }
+.observer-selection-status--generated { color: #775119; background: #f3e8d4; }
 .observer-selection-status--approved { color: #29614c; background: #dcece5; }
-.observer-selection-status--invitations-sent { color: #4a5bd4; background: var(--badge-bg); }
-.observer-selection-status--no-eligible-observers { color: #973e38; background: #f3dfdd; }
+.observer-selection-status--invitations_sent { color: #4a5bd4; background: var(--badge-bg); }
+.observer-selection-status--no_observers { color: #973e38; background: #f3dfdd; }
 
 .observer-selection-link {
   border: 0;
