@@ -67,5 +67,8 @@ export function forgotPasswordRequest(body: ForgotPasswordRequest) {
 }
 
 export function resetPasswordRequest(body: ResetPasswordRequest) {
-  return post<{ message: string }>('/api/auth/reset-password', { body })
+  return post<{
+    message: string
+    purpose: 'set_password' | 'reset_password'
+  }>('/api/auth/reset-password', { body })
 }
