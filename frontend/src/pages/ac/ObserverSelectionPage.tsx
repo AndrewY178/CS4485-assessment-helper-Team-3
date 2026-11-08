@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import ApproveCandidatesDialog from '../components/observer-selection/ApproveCandidatesDialog'
-import CandidatePanel from '../components/observer-selection/CandidatePanel'
-import ObserveeSelectionTable from '../components/observer-selection/ObserveeSelectionTable'
-import SelectionSummary from '../components/observer-selection/SelectionSummary'
-import { useAuth } from '../context/AuthContext'
+import ApproveCandidatesDialog from '../../components/observer-selection/ApproveCandidatesDialog'
+import CandidatePanel from '../../components/observer-selection/CandidatePanel'
+import ObserveeSelectionTable from '../../components/observer-selection/ObserveeSelectionTable'
+import SelectionSummary from '../../components/observer-selection/SelectionSummary'
+import { useAuth } from '../../context/AuthContext'
 import {
   getMockRecommendations,
   initialObserverSelectionRows,
   observerSelectionContext,
-} from '../data/observerSelectionMockData'
-import type { ObserverCandidateResponse, ObserverSelectionResponse } from '../types/api'
-import '../styles/observer-selection.css'
+} from '../../data/observerSelectionMockData'
+import type { ObserverCandidateResponse, ObserverSelectionResponse } from '../../types/api'
+import '../../styles/observer-selection.css'
 
 function selectedEligibleIds(recommendations: ObserverCandidateResponse[]) {
   return recommendations

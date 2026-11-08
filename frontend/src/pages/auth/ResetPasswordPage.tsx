@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, resetPasswordRequest } from '../api/auth'
-import AuthLayout from '../components/AuthLayout'
-import { AppLink } from '../context/NavigationContext'
+import { ApiError, resetPasswordRequest } from '../../api/auth'
+import AuthLayout from '../../components/AuthLayout'
+import { AppLink } from '../../context/NavigationContext'
 
 const MIN_PASSWORD_LENGTH = 8
 

@@ -15,7 +15,3 @@ export interface FacultyScheduleResponse {
   conducting: FacultyScheduleObservation[]
   scheduledForMe: FacultyScheduleObservation[]
 }
-
-export type FacultyScheduleLoader = (
-  signal: AbortSignal,
-) => Promise<FacultyScheduleResponse>

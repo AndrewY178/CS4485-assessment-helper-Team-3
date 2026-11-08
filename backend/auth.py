@@ -153,6 +153,16 @@ def ac_required(view):
     return wrapped
 
 
+def faculty_required(view):
+    @login_required
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "Faculty" not in _roles_for(g.user_id):
+            return error("Faculty only", 403)
+        return view(*args, **kwargs)
+    return wrapped
+
+
 # endpoints
 
 @auth_bp.post("/api/auth/login")

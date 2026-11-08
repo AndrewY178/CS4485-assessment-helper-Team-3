@@ -1,12 +1,13 @@
 from pathlib import Path
 import json
 from contextlib import contextmanager
+from datetime import date
 
-from flask import Flask, jsonify, request
+from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 from mysql.connector import IntegrityError
 from dotenv import load_dotenv
-from auth import auth_bp
+from auth import ac_required, auth_bp, faculty_required
 from reminders import reminders_bp
 
 from db import query, pool
@@ -111,6 +112,180 @@ COURSE_SELECT = f"""
     SELECT *
     FROM courses c
 """
+TRACKING_SELECT = """
+    SELECT
+        o.observee_id,
+        p.professor_name AS observee_name,
+        o.signup_sem,
+        c.course_id,
+        c.department AS course_department,
+        c.course_number,
+        c.section_number,
+        c.course_name,
+        m.meeting_id,
+        m.meeting_date,
+        m.observer_id,
+        observer.professor_name AS observer_name,
+        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists,
+        COALESCE(requests.total_count, 0) AS request_total,
+        COALESCE(requests.approved_count, 0) AS approved_count,
+        COALESCE(requests.pending_count, 0) AS pending_count,
+        COALESCE(requests.accepted_count, 0) AS accepted_count,
+        COALESCE(requests.declined_count, 0) AS declined_count,
+        COALESCE(requests.confirmed_count, 0) AS confirmed_count,
+        COALESCE(requests.not_selected_count, 0) AS not_selected_count,
+        COALESCE(requests.expired_count, 0) AS expired_count
+    FROM observees o
+    JOIN professors p ON p.professor_id = o.observee_id
+    LEFT JOIN courses c ON c.course_id = o.signup_course
+    LEFT JOIN meetings m ON m.course_id = o.signup_course
+    LEFT JOIN professors observer ON observer.professor_id = m.observer_id
+    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    LEFT JOIN (
+        SELECT
+            meeting_id,
+            COUNT(*) AS total_count,
+            SUM(status = 'approved') AS approved_count,
+            SUM(
+                status = 'pending'
+                AND (sent_at IS NULL OR sent_at >= NOW() - INTERVAL 48 HOUR)
+            ) AS pending_count,
+            SUM(status = 'accepted') AS accepted_count,
+            SUM(status = 'declined') AS declined_count,
+            SUM(status = 'confirmed') AS confirmed_count,
+            SUM(status = 'not_selected') AS not_selected_count,
+            SUM(
+                status = 'expired'
+                OR (status = 'pending' AND sent_at < NOW() - INTERVAL 48 HOUR)
+            ) AS expired_count
+        FROM observation_requests
+        GROUP BY meeting_id
+    ) requests ON requests.meeting_id = m.meeting_id
+    WHERE o.signup_sem = %s
+    ORDER BY p.professor_name, m.meeting_id
+"""
+FACULTY_SCHEDULE_CONDUCTING_SELECT = """
+    SELECT
+        m.meeting_id,
+        m.meeting_date,
+        c.department AS course_department,
+        c.course_number,
+        c.section_number,
+        c.course_name,
+        observee.professor_name AS counterpart_name,
+        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists
+    FROM meetings m
+    JOIN courses c ON c.course_id = m.course_id
+    JOIN professors observee ON observee.professor_id = c.prof_id
+    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    WHERE m.observer_id = %s
+      AND c.semester = %s
+      AND m.observer_id IS NOT NULL
+      AND m.meeting_date IS NOT NULL
+    ORDER BY m.meeting_date, m.meeting_id
+"""
+FACULTY_SCHEDULE_OBSERVEE_SELECT = """
+    SELECT
+        m.meeting_id,
+        m.meeting_date,
+        c.department AS course_department,
+        c.course_number,
+        c.section_number,
+        c.course_name,
+        observer.professor_name AS counterpart_name,
+        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists
+    FROM meetings m
+    JOIN courses c ON c.course_id = m.course_id
+    JOIN professors observer ON observer.professor_id = m.observer_id
+    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    WHERE c.prof_id = %s
+      AND c.semester = %s
+      AND m.observer_id IS NOT NULL
+      AND m.meeting_date IS NOT NULL
+    ORDER BY m.meeting_date, m.meeting_id
+"""
+
+
+def tracking_status(row):
+    if row["report_exists"]:
+        return "completed"
+
+    meeting_date = row["meeting_date"]
+    if row["observer_id"] is not None and meeting_date is not None:
+        # The database currently stores only a date, not an observation time.
+        # Keep today's observation scheduled until the following day.
+        if meeting_date < date.today():
+            return "report-pending"
+        return "scheduled"
+
+    request_total = int(row["request_total"] or 0)
+    unsuccessful_requests = int(row["declined_count"] or 0) + int(
+        row["expired_count"] or 0
+    )
+    if request_total > 0 and unsuccessful_requests == request_total:
+        return "needs-attention"
+    return "observer-needed"
+
+
+def course_code(row):
+    department = row["course_department"]
+    number = row["course_number"]
+    section = row["section_number"]
+    if not department or not number:
+        return None
+
+    code = f"{department} {number}"
+    return f"{code}.{section}" if section else code
+
+
+def tracking_record(row):
+    meeting_date = row["meeting_date"]
+    if meeting_date is not None:
+        meeting_date = meeting_date.isoformat()
+
+    return {
+        "observeeId": row["observee_id"],
+        "observeeName": row["observee_name"],
+        "courseId": row["course_id"],
+        "courseCode": course_code(row),
+        "courseName": row["course_name"],
+        "meetingId": row["meeting_id"],
+        "meetingDate": meeting_date,
+        "observerId": row["observer_id"],
+        "observerName": row["observer_name"],
+        "requestCounts": {
+            "approved": int(row["approved_count"] or 0),
+            "pending": int(row["pending_count"] or 0),
+            "accepted": int(row["accepted_count"] or 0),
+            "declined": int(row["declined_count"] or 0),
+            "confirmed": int(row["confirmed_count"] or 0),
+            "notSelected": int(row["not_selected_count"] or 0),
+            "expired": int(row["expired_count"] or 0),
+        },
+        "reportExists": bool(row["report_exists"]),
+        "status": tracking_status(row),
+    }
+
+
+def faculty_schedule_status(row):
+    if row["report_exists"]:
+        return "Completed"
+    if row["meeting_date"] < date.today():
+        return "Report Pending"
+    return "Scheduled"
+
+
+def faculty_schedule_record(row):
+    return {
+        "id": str(row["meeting_id"]),
+        "observationDate": row["meeting_date"].isoformat(),
+        "course": {
+            "code": course_code(row),
+            "title": row["course_name"],
+        },
+        "counterpartName": row["counterpart_name"],
+        "status": faculty_schedule_status(row),
+    }
 
 # AC Member GET endpoints
 
@@ -188,6 +363,44 @@ def get_observer_list():
 
     candidates = query(OBSERVER_CANDIDATES_SELECT, (course_id,))
     return jsonify(candidates)
+
+
+@app.route("/api/tracking")
+@ac_required
+def get_observation_tracking():
+    signup_semester = request.args.get("signup_semester", "").strip()
+    if not signup_semester:
+        return jsonify(error="signup_semester is required"), 400
+
+    rows = query(TRACKING_SELECT, (signup_semester,))
+    return jsonify({
+        "signupSemester": signup_semester,
+        "observations": [tracking_record(row) for row in rows],
+    })
+
+
+@app.route("/api/faculty/schedule")
+@faculty_required
+def get_faculty_schedule():
+    semester = request.args.get("semester", "").strip()
+    if not semester:
+        return jsonify(error="semester is required"), 400
+
+    conducting = query(
+        FACULTY_SCHEDULE_CONDUCTING_SELECT,
+        (g.user_id, semester),
+    )
+    scheduled_for_me = query(
+        FACULTY_SCHEDULE_OBSERVEE_SELECT,
+        (g.user_id, semester),
+    )
+
+    return jsonify({
+        "conducting": [faculty_schedule_record(row) for row in conducting],
+        "scheduledForMe": [
+            faculty_schedule_record(row) for row in scheduled_for_me
+        ],
+    })
 
     
 

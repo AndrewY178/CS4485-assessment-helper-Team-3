@@ -1,25 +1,20 @@
 import { useEffect, useState } from 'react'
+import { ApiError } from '../../api/auth'
+import {
+  getFacultySchedule,
+  TEMPORARY_SCHEDULE_SEMESTER,
+} from '../../api/schedule'
+import { useAuth } from '../../context/AuthContext'
 import type {
-  FacultyScheduleLoader,
   FacultyScheduleObservation,
   FacultyScheduleResponse,
-} from '../types/schedule'
-import '../styles/my-schedule.css'
+} from '../../types/schedule'
+import '../../styles/my-schedule.css'
 
 type ScheduleViewState =
-  | { status: 'unavailable' }
   | { status: 'loading' }
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; accessDenied?: boolean }
   | { status: 'ready'; schedule: FacultyScheduleResponse }
-
-interface MySchedulePageProps {
-  /**
-   * TODO(API): Supply a loader only after the Flask route and response contract
-   * are confirmed. Leaving it undefined deliberately avoids calling a guessed
-   * endpoint or silently substituting mock records.
-   */
-  loadSchedule?: FacultyScheduleLoader
-}
 
 interface ScheduleTableProps {
   counterpartLabel: 'Observee' | 'Observer'
@@ -163,19 +158,27 @@ function ScheduleSection({
   )
 }
 
-export default function MySchedulePage({
-  loadSchedule,
-}: MySchedulePageProps) {
-  const [viewState, setViewState] = useState<ScheduleViewState>(() =>
-    loadSchedule ? { status: 'loading' } : { status: 'unavailable' },
-  )
+export default function MySchedulePage() {
+  const { token } = useAuth()
+  const [viewState, setViewState] = useState<ScheduleViewState>(() => (
+    token
+      ? { status: 'loading' }
+      : {
+          status: 'error',
+          message: 'Your session is unavailable. Please sign in again.',
+        }
+  ))
   const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
-    if (!loadSchedule) return
+    if (!token) return
 
     const controller = new AbortController()
-    void loadSchedule(controller.signal)
+    void getFacultySchedule(
+      TEMPORARY_SCHEDULE_SEMESTER,
+      token,
+      controller.signal,
+    )
       .then((schedule) => {
         if (!controller.signal.aborted) {
           setViewState({ status: 'ready', schedule })
@@ -185,15 +188,17 @@ export default function MySchedulePage({
         if (controller.signal.aborted) return
         setViewState({
           status: 'error',
-          message:
-            error instanceof Error
+          accessDenied: error instanceof ApiError && error.status === 403,
+          message: error instanceof ApiError && error.status === 403
+            ? 'My Schedule is available only to Faculty users.'
+            : error instanceof Error
               ? error.message
               : 'The schedule could not be loaded.',
         })
       })
 
     return () => controller.abort()
-  }, [loadSchedule, loadAttempt])
+  }, [loadAttempt, token])
 
   return (
     <section className="screen-page participant-page my-schedule-page">
@@ -207,19 +212,6 @@ export default function MySchedulePage({
         </div>
       </header>
 
-      {viewState.status === 'unavailable' && (
-        <section className="schedule-state" aria-labelledby="schedule-unavailable-title">
-          <span className="schedule-state__eyebrow">Schedule unavailable</span>
-          <h2 id="schedule-unavailable-title">
-            Schedule data is currently unavailable
-          </h2>
-          <p>
-            The Faculty schedule service has not been connected yet. No
-            observation records are being inferred or replaced with sample data.
-          </p>
-        </section>
-      )}
-
       {viewState.status === 'loading' && (
         <section aria-live="polite" className="schedule-state schedule-state--loading">
           <span className="schedule-loading-indicator" aria-hidden="true" />
@@ -232,19 +224,27 @@ export default function MySchedulePage({
 
       {viewState.status === 'error' && (
         <section className="schedule-state schedule-state--error" role="alert">
-          <span className="schedule-state__eyebrow">Unable to load schedule</span>
-          <h2>We couldn&apos;t retrieve your observations</h2>
+          <span className="schedule-state__eyebrow">
+            {viewState.accessDenied ? 'Faculty access required' : 'Unable to load schedule'}
+          </span>
+          <h2>
+            {viewState.accessDenied
+              ? 'You do not have access to My Schedule'
+              : 'We couldn\'t retrieve your observations'}
+          </h2>
           <p>{viewState.message}</p>
-          <button
-            className="button button--outline"
-            onClick={() => {
-              setViewState({ status: 'loading' })
-              setLoadAttempt((attempt) => attempt + 1)
-            }}
-            type="button"
-          >
-            Try again
-          </button>
+          {!viewState.accessDenied && (
+            <button
+              className="button button--outline"
+              onClick={() => {
+                setViewState({ status: 'loading' })
+                setLoadAttempt((attempt) => attempt + 1)
+              }}
+              type="button"
+            >
+              Try again
+            </button>
+          )}
         </section>
       )}
 
