@@ -197,6 +197,14 @@ export interface ObserverCandidateResponse {
   currentObservationCount: number
 }
 
+// GET /api/observers/accepted?observee_id=&signup_semester=
+export interface AcceptedObserverResponse {
+  observer_id: number
+  professor_name: string | null
+  professor_department: string | null
+  selected_date: string | null
+}
+
 // PROPOSED: GET /api/observer-selection?semesterId={semesterId}
 // One entry per faculty member who signed up. The backend must return no more
 // than five candidates and enforce eligibility, schedule, and capacity rules.

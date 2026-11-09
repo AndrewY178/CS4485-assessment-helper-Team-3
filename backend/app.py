@@ -453,6 +453,56 @@ def get_observe_list():
     return jsonify(observers)
 
 
+@app.route("/api/observers/accepted")
+def get_accepted_observers():
+    raw_observee_id = request.args.get("observee_id", "").strip()
+    signup_semester = request.args.get("signup_semester", "").strip()
+
+    if not raw_observee_id or not signup_semester:
+        return jsonify(error="observee_id and signup_semester are required"), 400
+
+    try:
+        observee_id = int(raw_observee_id)
+    except ValueError:
+        return jsonify(error="observee_id must be an integer"), 400
+
+    selected = query(
+        """
+        SELECT m.meeting_id
+        FROM observees o
+        LEFT JOIN courses c ON c.course_id = o.signup_course
+        LEFT JOIN meetings m ON m.course_id = o.signup_course
+        WHERE o.observee_id = %s AND o.signup_sem = %s
+        """,
+        (observee_id, signup_semester),
+    )
+
+    if not selected or selected[0]["meeting_id"] is None:
+        return jsonify([])
+
+    rows = query(
+        """
+        SELECT
+            observer_id,
+            professor_name,
+            professor_department,
+            selected_date
+        FROM observation_requests
+        JOIN professors
+            ON professors.professor_id = observation_requests.observer_id
+        WHERE observation_requests.meeting_id = %s
+          AND observation_requests.status = 'accepted'
+        """,
+        (selected[0]["meeting_id"],),
+    )
+
+    for row in rows:
+        if row["selected_date"] is not None:
+            row["selected_date"] = row["selected_date"].isoformat()
+
+    return jsonify(rows)
+
+
 @app.route("/api/observers", methods=["POST"])
 def generate_single_observer_list():
     raw_observee_id = request.args.get("observee_id", "").strip()

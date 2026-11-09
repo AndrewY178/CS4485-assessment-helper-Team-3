@@ -1,5 +1,9 @@
 import { get, post } from './client'
-import type { GenerateObserverListsResponse,ObserverCandidateResponse } from '../types/api'
+import type {
+  AcceptedObserverResponse,
+  GenerateObserverListsResponse,
+  ObserverCandidateResponse,
+} from '../types/api'
 
 export function generateObserverLists(signupSemester: string) {
   const params = new URLSearchParams({
@@ -36,4 +40,18 @@ export function getObserverList(
   })
 
   return get<ObserverCandidateResponse[]>(`/api/observers?${params.toString()}`)
+}
+
+export function getAcceptedObservers(
+  observeeId: string,
+  signupSemester: string,
+) {
+  const params = new URLSearchParams({
+    observee_id: observeeId,
+    signup_semester: signupSemester,
+  })
+
+  return get<AcceptedObserverResponse[]>(
+    `/api/observers/accepted?${params.toString()}`,
+  )
 }
