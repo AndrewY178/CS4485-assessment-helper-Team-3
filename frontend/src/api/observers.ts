@@ -3,6 +3,8 @@ import type {
   AcceptedObserverResponse,
   GenerateObserverListsResponse,
   ObserverCandidateResponse,
+  ObserverRequestResponse,
+  SendObserverRequestsResponse,
 } from '../types/api'
 
 export function generateObserverLists(signupSemester: string) {
@@ -53,5 +55,41 @@ export function getAcceptedObservers(
 
   return get<AcceptedObserverResponse[]>(
     `/api/observers/accepted?${params.toString()}`,
+  )
+}
+
+export function sendObserverRequests(
+  observeeId: string,
+  signupSemester: string,
+  observerIds: string[],
+) {
+  return post<SendObserverRequestsResponse>('/api/observers/request', {
+    body: {
+      observee_id: Number(observeeId),
+      signup_semester: signupSemester,
+      observer_ids: observerIds.map(Number),
+    },
+  })
+}
+
+export function getObserverRequests(token: string, signal?: AbortSignal) {
+  return get<ObserverRequestResponse[]>('/api/observer-requests', { token, signal })
+}
+
+export function acceptObserverRequest(
+  meetingId: number,
+  selectedDate: string,
+  token: string,
+) {
+  return post<{ meeting_id: number; status: 'accepted'; selected_date: string }>(
+    `/api/observer-requests/${meetingId}/accept`,
+    { body: { selected_date: selectedDate }, token },
+  )
+}
+
+export function declineObserverRequest(meetingId: number, token: string) {
+  return post<{ meeting_id: number; status: 'declined' }>(
+    `/api/observer-requests/${meetingId}/decline`,
+    { token },
   )
 }
