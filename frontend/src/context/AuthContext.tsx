@@ -9,10 +9,13 @@ import {
 import { ApiError, loginRequest, logoutRequest } from '../api/auth'
 import { useNavigation } from './NavigationContext'
 
+// This context intentionally exports its provider and related hooks together.
+/* eslint-disable react-refresh/only-export-components */
+
 export type Role = 'AC Member' | 'Faculty'
 
-// a person can hold several roles at once so we keep the full list and check it with roles.includes(...).
-// ignoring single role functionality set in the draft API contract
+// The API transports permissions as an array, so callers use roles.includes(...)
+// instead of relying on the removed singular `role` variable.
 interface Session {
   token: string
   roles: Role[]
@@ -21,10 +24,13 @@ interface Session {
 
 interface AuthContextValue {
   roles: Role[]
+  token: string | null
   userId: string | null
+  token: string | null
   // rejects with an ApiError (its message is safe to show to the user)
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<Role[]>
   logout: () => Promise<void>
+  switchRoleForTesting: (role: Role) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -77,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     saveSession(next)
     setSession(next)
+    return response.roles
   }, [])
 
   const logout = useCallback(async () => {
@@ -89,14 +96,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session])
 
+  const switchRoleForTesting = useCallback((role: Role) => {
+    if (!import.meta.env.DEV) return
+
+    setSession((current) => {
+      if (!current) return current
+
+      const next: Session = { ...current, roles: [role] }
+      saveSession(next)
+      return next
+    })
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       roles: session?.roles ?? [],
+      token: session?.token ?? null,
       userId: session?.userId ?? null,
+      token: session?.token ?? null,
       login,
       logout,
+      switchRoleForTesting,
     }),
-    [session, login, logout],
+    [session, login, logout, switchRoleForTesting],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

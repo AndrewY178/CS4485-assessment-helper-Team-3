@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, resetPasswordRequest } from '../api/auth'
-import AuthLayout from '../components/AuthLayout'
-import { AppLink } from '../context/NavigationContext'
+import { ApiError, resetPasswordRequest } from '../../api/auth'
+import AuthLayout from '../../components/AuthLayout'
+import { AppLink } from '../../context/NavigationContext'
 
 const MIN_PASSWORD_LENGTH = 8
 
 // opened from the emailed link: /reset-password?token=...
 // used both for a new account's first password and for "forgot password"
 export default function ResetPasswordPage() {
-  const token = new URLSearchParams(window.location.search).get('token') ?? ''
+  const search = new URLSearchParams(window.location.search)
+  const token = search.get('token') ?? ''
+  const [purpose, setPurpose] = useState<'set_password' | 'reset_password'>(
+    search.get('purpose') === 'set_password' ? 'set_password' : 'reset_password',
+  )
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
@@ -30,7 +34,8 @@ export default function ResetPasswordPage() {
 
     setSubmitting(true)
     try {
-      await resetPasswordRequest({ token, newPassword: password })
+      const response = await resetPasswordRequest({ token, newPassword: password })
+      setPurpose(response.purpose)
       setDone(true)
     } catch (caught) {
       setError(
@@ -65,12 +70,18 @@ export default function ResetPasswordPage() {
   if (done) {
     return (
       <AuthLayout
-        subtitle="You can now log in with your new password."
-        title="Password saved"
+        subtitle={
+          purpose === 'set_password'
+            ? 'Your email is verified. You can now log in.'
+            : 'You can now log in with your new password.'
+        }
+        title={purpose === 'set_password' ? 'Account activated' : 'Password saved'}
       >
         <div className="login-form">
           <div className="form-banner form-banner--success" role="status">
-            Your password has been set.
+            {purpose === 'set_password'
+              ? 'Your email has been verified and your password has been set.'
+              : 'Your password has been updated.'}
           </div>
           <AppLink className="button button--primary login-form__submit" to="/login">
             Go to log in
@@ -83,7 +94,7 @@ export default function ResetPasswordPage() {
   return (
     <AuthLayout
       subtitle={`Choose a password with at least ${MIN_PASSWORD_LENGTH} characters.`}
-      title="Set your password"
+      title={purpose === 'set_password' ? 'Activate your account' : 'Reset your password'}
     >
       <form className="login-form" noValidate onSubmit={handleSubmit}>
         {error && (

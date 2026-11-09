@@ -23,20 +23,21 @@ INSERT INTO assessment_committee (ac_id)
 -- Create the user accounts first.
 -- NULL passwords intentionally prevent these accounts from logging in.
 INSERT INTO users (username, email, password_hash) VALUES
-    ('prof_01', 'professor01@example.test', NULL),
-    ('prof_02', 'professor02@example.test', NULL),
-    ('prof_03', 'professor03@example.test', NULL),
-    ('prof_04', 'professor04@example.test', NULL),
-    ('prof_05', 'professor05@example.test', NULL),
-    ('prof_06', 'professor06@example.test', NULL),
-    ('prof_07', 'professor07@example.test', NULL),
-    ('prof_08', 'professor08@example.test', NULL),
-    ('prof_09', 'professor09@example.test', NULL),
-    ('prof_10', 'professor10@example.test', NULL);
+    ('prof_01', 'p01@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_02', 'p02@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_03', 'p03@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_04', 'p04@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_05', 'p05@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_06', 'p06@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_07', 'p07@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_08', 'p08@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_09', 'p09@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_10', 'p10@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636"),
+    ('prof_11', 'p11@example.com', "scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636");
 
 -- Add fake display names.
 -- The professor_id is the corresponding users.id.
-INSERT INTO professors (professor_id, professor_name, professor_rank, professor_department)
+INSERT INTO professors (professor_id, professor_name, professor_rank, professor_department, last_sem_observed)
 SELECT
     id,
     CASE username
@@ -50,6 +51,7 @@ SELECT
         WHEN 'prof_08' THEN 'Harry Styles'
         WHEN 'prof_09' THEN 'Inigo Montoya'
         WHEN 'prof_10' THEN 'John Jones'
+        WHEN 'prof_11' THEN 'T1 FAKER'
     END,
     CASE username
         WHEN 'prof_01' THEN 'Assistant'
@@ -62,17 +64,19 @@ SELECT
         WHEN 'prof_08' THEN 'Full'
         WHEN 'prof_09' THEN 'Full'
         WHEN 'prof_10' THEN 'Full'
+        WHEN 'prof_11' THEN 'Full'
     END,
-    'CS'
+    'CS',
+    NULL
 FROM users
 WHERE username LIKE 'prof_%';
 
 -- Make each professor an observee.
 INSERT INTO observees (
-    observee_id, last_sem_observed, hiring_sem, signup_sem
+    observee_id, hiring_sem, signup_sem
 )
 SELECT
-    id, NULL, 'Fall 2024',
+    id, 'Fall 2024',
     CASE 
         WHEN username = 'prof_10' THEN 'Spring 2026'
         ELSE 'Fall 2026' 
@@ -291,6 +295,26 @@ SELECT
 FROM users
 WHERE username = 'prof_10';
 
+INSERT INTO courses (
+    department, course_number, section_number, course_name,
+    semester, course_description, course_day,
+    course_start_time, course_end_time, room_number, prof_id
+)
+SELECT 
+    'CS',
+    '2026',
+    '001',
+    'Special Topics in CS',
+    'Fall 2026',
+    'LEAGUE OF LEGENDS',
+    'MW',
+    '17:30:00',
+    '18:45:00',
+    'Korea 1.210',
+    id
+FROM users
+WHERE username = 'prof_11';
+
 -- add the courses the prof wants observed
 UPDATE observees o
 JOIN courses c
@@ -315,8 +339,12 @@ WHERE c.department = 'CS';
 INSERT INTO users (username, email, password_hash) VALUES
   ('dev_user', 'dev@example.com', 'scrypt:32768:8:1$mAGnCIkLHbZBt0Cf$81bf5bbc595b5ec17c727a2b67a1e336992dce42add1bb3f10d39c12af15e77a5b554e9f3623690a1ba23a7bb735c19fe2adf51654b67fd6bb3d88d1dd868636');
 
-INSERT INTO professors (professor_id, professor_name)
-  SELECT id, 'Dev' FROM users WHERE username = 'dev_user';
+UPDATE users
+SET email_verified_at = CURRENT_TIMESTAMP
+WHERE password_hash IS NOT NULL;
+
+INSERT INTO professors (professor_id, professor_name, professor_department)
+  SELECT id, 'DEV', 'CS' FROM users WHERE username = 'dev_user';
 
 INSERT INTO assessment_committee (ac_id)
   SELECT id FROM users WHERE username = 'dev_user';
@@ -328,6 +356,41 @@ INSERT INTO observees (observee_id, signup_sem)
   SELECT id, "Fall 1996"
  FROM users WHERE username = 'dev_user';
 
+-- DEV ONLY: a Fall 2026 course and sign-up for the dev account so the sign-up page and the
+-- observer flow can be tried by logging in as dev. 
+-- At the end of dev: delete this block (keep the Fall 1996 row above, scenario 2 uses it) and reset the database.
+INSERT INTO courses (
+    department, course_number, section_number, course_name,
+    semester, course_description, course_day,
+    course_start_time, course_end_time, room_number, prof_id
+)
+SELECT
+    'CS', '4390', '001', 'Dev Test',
+    'Fall 2026', 'Course for dev account', 'MW',
+    '10:00:00', '11:15:00', 'ECSS 2.410', id
+FROM users
+WHERE username = 'dev_user';
+
+INSERT INTO course_levels (prof_id, course_level)
+SELECT id, '4000' FROM users WHERE username = 'dev_user';
+
+INSERT INTO observees (observee_id, hiring_sem, signup_sem, signup_course)
+SELECT u.id, 'Fall 2024', 'Fall 2026', c.course_id
+FROM users u
+JOIN courses c ON c.prof_id = u.id AND c.semester = 'Fall 2026'
+WHERE u.username = 'dev_user';
+
+-- add meetings for all the professors
+INSERT INTO meetings (course_id)
+SELECT o.signup_course
+FROM observees o
+WHERE o.signup_course IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM meetings m
+      WHERE m.course_id = o.signup_course
+  );
+          
 -- ---------------------------------------------------------------------------
 -- Sample data for the observer request flow (accept / reject)
 -- Each scenario is one observee's sign-up at a different stage. The offered dates fall on
@@ -344,15 +407,22 @@ SET @p08 = (SELECT id FROM users WHERE username = 'prof_08');
 SET @p09 = (SELECT id FROM users WHERE username = 'prof_09');
 SET @dev = (SELECT id FROM users WHERE username = 'dev_user');
 
+-- The meetings for these sign-ups were already created above ("add meetings for all the
+-- professors"), so each scenario looks its meeting up instead of inserting a second one.
+-- Every scenario's observer list was approved, so those sign-ups are marked 'approved'.
+UPDATE observees
+SET status = 'approved'
+WHERE signup_sem = 'Fall 2026'
+  AND observee_id IN (@p03, @p04, @p06, @p07);
+
 -- Scenario 1: AC approved two observers for prof_03, the observee has not sent the requests yet
 INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
     (@p03, 'Fall 2026', '2026-11-16'),
     (@p03, 'Fall 2026', '2026-11-18'),
     (@p03, 'Fall 2026', '2026-11-23');
 
-INSERT INTO meetings (course_id)
-    SELECT signup_course FROM observees WHERE observee_id = @p03 AND signup_sem = 'Fall 2026';
-SET @m1 = LAST_INSERT_ID();
+SET @m1 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+           WHERE o.observee_id = @p03 AND o.signup_sem = 'Fall 2026');
 
 INSERT INTO observation_requests (meeting_id, observer_id, status) VALUES
     (@m1, @p04, 'approved'),
@@ -366,9 +436,8 @@ INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
     (@p04, 'Fall 2026', '2026-11-19'),
     (@p04, 'Fall 2026', '2026-11-24');
 
-INSERT INTO meetings (course_id)
-    SELECT signup_course FROM observees WHERE observee_id = @p04 AND signup_sem = 'Fall 2026';
-SET @m2 = LAST_INSERT_ID();
+SET @m2 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+           WHERE o.observee_id = @p04 AND o.signup_sem = 'Fall 2026');
 
 INSERT INTO observation_requests (meeting_id, observer_id, status, selected_date, sent_at, responded_at) VALUES
     (@m2, @p03, 'declined', NULL,         NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 30 MINUTE),
@@ -382,9 +451,12 @@ INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
     (@p06, 'Fall 2026', '2026-11-19'),
     (@p06, 'Fall 2026', '2026-11-24');
 
-INSERT INTO meetings (course_id, observer_id, meeting_date)
-    SELECT signup_course, @p07, '2026-11-17' FROM observees WHERE observee_id = @p06 AND signup_sem = 'Fall 2026';
-SET @m3 = LAST_INSERT_ID();
+SET @m3 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+           WHERE o.observee_id = @p06 AND o.signup_sem = 'Fall 2026');
+
+UPDATE meetings
+SET observer_id = @p07, meeting_date = '2026-11-17'
+WHERE meeting_id = @m3;
 
 INSERT INTO observation_requests (meeting_id, observer_id, status, selected_date, sent_at, responded_at) VALUES
     (@m3, @p07, 'confirmed',    '2026-11-17', NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY),
@@ -397,9 +469,8 @@ INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
     (@p07, 'Fall 2026', '2026-11-16'),
     (@p07, 'Fall 2026', '2026-11-18');
 
-INSERT INTO meetings (course_id)
-    SELECT signup_course FROM observees WHERE observee_id = @p07 AND signup_sem = 'Fall 2026';
-SET @m4 = LAST_INSERT_ID();
+SET @m4 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+           WHERE o.observee_id = @p07 AND o.signup_sem = 'Fall 2026');
 
 INSERT INTO observation_requests (meeting_id, observer_id, status, sent_at) VALUES
     (@m4, @p09, 'pending', NOW() - INTERVAL 3 DAY);

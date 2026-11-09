@@ -1,5 +1,9 @@
-import { useState, type FormEvent } from 'react'
-import { AppLink } from '../context/NavigationContext'
+import { useEffect, useState, type FormEvent } from 'react'
+import { ApiError } from '../../api/auth'
+import { TEMPORARY_SCHEDULE_SEMESTER } from '../../api/schedule'
+import { getSignupDates, saveSignupDates } from '../../api/signupDates'
+import { useAuth } from '../../context/AuthContext'
+import { AppLink } from '../../context/NavigationContext'
 
 const courses = [
   {
@@ -24,12 +28,34 @@ function formatDate(value: string) {
   }).format(date)
 }
 
-export default function ObserveeStatusPage() {
+export default function FacultyStatusPage() {
   const [selectedCourse, setSelectedCourse] = useState(courses[0].id)
   const [dates, setDates] = useState(initialDates)
   const [newDate, setNewDate] = useState('')
   const [notice, setNotice] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const { token } = useAuth()
+
+  // show the dates this person already saved, if any
+  useEffect(() => {
+    if (!token) return
+
+    const controller = new AbortController()
+    void getSignupDates(TEMPORARY_SCHEDULE_SEMESTER, token, controller.signal)
+      .then((saved) => {
+        if (controller.signal.aborted || saved.dates.length === 0) return
+        setDates(saved.dates)
+        setSubmitted(true)
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return
+        // no sign-up yet (404) is expected, so only show other problems
+        if (error instanceof ApiError && error.status === 404) return
+        setNotice(error instanceof Error ? error.message : 'Your saved dates could not be loaded.')
+      })
+
+    return () => controller.abort()
+  }, [token])
 
   function addDate() {
     if (!newDate || dates.includes(newDate)) return
@@ -37,7 +63,7 @@ export default function ObserveeStatusPage() {
     setNewDate('')
   }
 
-  function submitSignUp(event: FormEvent<HTMLFormElement>) {
+  async function submitSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedCourse) {
       setNotice('Choose a course before submitting your sign-up.')
@@ -47,8 +73,19 @@ export default function ObserveeStatusPage() {
       setNotice('Add at least one date when you can be observed.')
       return
     }
-    setSubmitted(true)
-    setNotice('Your sign-up has been saved. You can update your course and dates until the deadline.')
+    if (!token) {
+      setNotice('Your session is unavailable. Please sign in again.')
+      return
+    }
+    try {
+      const saved = await saveSignupDates(TEMPORARY_SCHEDULE_SEMESTER, dates, token)
+      setDates(saved.dates)
+      setSubmitted(true)
+      setNotice('Your sign-up has been saved. You can update your course and dates until the deadline.')
+    } catch (error) {
+      setSubmitted(false)
+      setNotice(error instanceof Error ? error.message : 'Your sign-up could not be saved.')
+    }
   }
 
   function cancelSignUp() {

@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import CriteriaTable from '../components/template/CriteriaTable'
-import type { CriterionInput } from '../components/template/CriterionEditor'
-import ConfirmDialog from '../components/template/ConfirmDialog'
-import TemplatePreview from '../components/template/TemplatePreview'
-import { useAuth } from '../context/AuthContext'
-import { currentObservationTemplate } from '../data/templateMockData'
-import type { ObservationTemplate, TemplateCriterion } from '../types/template'
-import '../styles/template.css'
+import CriteriaTable from '../../components/template/CriteriaTable'
+import type { CriterionInput } from '../../components/template/CriterionEditor'
+import ConfirmDialog from '../../components/template/ConfirmDialog'
+import TemplatePreview from '../../components/template/TemplatePreview'
+import { useAuth } from '../../context/AuthContext'
+import { currentObservationTemplate } from '../../data/templateMockData'
+import type { ObservationTemplate, TemplateCriterion } from '../../types/template'
+import '../../styles/template.css'
 
 function copyTemplate(template: ObservationTemplate): ObservationTemplate {
   return {

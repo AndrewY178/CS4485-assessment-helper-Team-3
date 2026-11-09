@@ -2,6 +2,7 @@ CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
+    email_verified_at TIMESTAMP NULL DEFAULT NULL,
     password_hash VARCHAR(255) NULL, -- if NULL: account created by AC, password not set yet (login refused)
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -13,6 +14,7 @@ CREATE TABLE professors (
     professor_name VARCHAR(100) NOT NULL,
     professor_rank VARCHAR(50),
     professor_department VARCHAR(50),
+    last_sem_observed VARCHAR(50),
     FOREIGN KEY (professor_id) REFERENCES users(id)
 
 );
@@ -34,13 +36,20 @@ CREATE TABLE courses (
     FOREIGN KEY (prof_id) REFERENCES professors(professor_id)
 );
 
+-- TODO: add status to observees so we can use it in front end tracking
 CREATE TABLE observees (
     observee_id INT,
-    -- observee_department VARCHAR(100),
-    last_sem_observed VARCHAR(50),
     hiring_sem VARCHAR(50),
     signup_sem VARCHAR(20),
     signup_course INT,
+    -- not_generated: observer list has not been generated for observee
+    -- generated: observer list has been generated for observee and is stored in observation request table
+    -- no_observers: generated but no observers could observe
+    -- approved: observer list has been approved
+    -- manual: observee manually added by AC if needed to fulfill an observation request
+    -- TODO: add more as needed
+    status ENUM('not_generated','generated','no_observers','approved','manual')
+        NOT NULL DEFAULT 'not_generated',
     PRIMARY KEY (observee_id, signup_sem),
     FOREIGN KEY (observee_id) REFERENCES professors(professor_id),
     FOREIGN KEY (signup_course) REFERENCES courses(course_id)
@@ -104,6 +113,7 @@ CREATE TABLE meetings (
 CREATE TABLE observation_requests (
     meeting_id INT NOT NULL,
     observer_id INT NOT NULL,
+    -- generated    System generated this person as a potential observer
     -- approved     AC approved this observer, the observee has not sent the request yet
     -- pending      request sent, waiting for the observer (48 hours from sent_at)
     -- accepted     observer accepted and picked a date (selected_date)
@@ -111,7 +121,7 @@ CREATE TABLE observation_requests (
     -- confirmed    observee chose this observer (meetings.observer_id and meeting_date are set)
     -- not_selected observee chose a different observer
     -- expired      no answer within 48 hours
-    status ENUM('approved', 'pending', 'accepted', 'declined', 'confirmed', 'not_selected', 'expired')
+    status ENUM('generated','approved', 'pending', 'accepted', 'declined', 'confirmed', 'not_selected', 'expired')
         NOT NULL DEFAULT 'approved',
     selected_date DATE, -- one of the observee's offered dates (signup_dates), set when accepting
     sent_at DATETIME,

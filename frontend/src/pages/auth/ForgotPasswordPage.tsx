@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError, forgotPasswordRequest } from '../api/auth'
-import AuthLayout from '../components/AuthLayout'
-import { AppLink } from '../context/NavigationContext'
+import { ApiError, forgotPasswordRequest } from '../../api/auth'
+import AuthLayout from '../../components/AuthLayout'
+import { AppLink } from '../../context/NavigationContext'
 
 // 60 -> "1 hour", 120 -> "2 hours", 30 -> "30 minutes"
 function formatDuration(minutes: number) {
@@ -55,8 +55,7 @@ export default function ForgotPasswordPage() {
           </div>
           {import.meta.env.DEV && (
             <p className="auth-note">
-              Development: email sending is not set up yet, so the link is
-              printed in the backend terminal.
+              Check your inbox and spam folder for the password link.
             </p>
           )}
           <AppLink className="auth-link" to="/login">

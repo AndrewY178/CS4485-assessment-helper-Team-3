@@ -2,59 +2,73 @@ import { useEffect } from 'react'
 import AppLayout from './components/AppLayout'
 import { useAuth } from './context/AuthContext'
 import { useNavigation } from './context/NavigationContext'
-import DashboardPage from './pages/DashboardPage'
-import CycleKpiPage from './pages/CycleKpiPage'
-import MyObservationPage from './pages/MyObservationPage'
-import MyObserversPage from './pages/MyObserversPage'
-import ObserveeStatusPage from './pages/ObserveeStatusPage'
-import ObserverRequestsPage from './pages/ObserverRequestsPage'
-import PlaceholderPage from './pages/PlaceholderPage'
-import CycleSetupPage from './pages/CycleSetupPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import LoginPage from './pages/LoginPage'
-import ObserverSelectionPage from './pages/ObserverSelectionPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import SignUpsPage from './pages/SignUpsPage'
-import TrackingPage from './pages/TrackingPage'
-import TemplatePage from './pages/TemplatePage'
+import CycleKpiPage from './pages/ac/CycleKpiPage'
+import CycleSetupPage from './pages/ac/CycleSetupPage'
+import DashboardPage from './pages/ac/DashboardPage'
+import ObserverSelectionPage from './pages/ac/ObserverSelectionPage'
+import SignUpsPage from './pages/ac/SignUpsPage'
+import TemplatePage from './pages/ac/TemplatePage'
+import TrackingPage from './pages/ac/TrackingPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import LoginPage from './pages/auth/LoginPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import FacultyStatusPage from './pages/faculty/FacultyStatusPage'
+import MySchedulePage from './pages/faculty/MySchedulePage'
+import MyObservationPage from './pages/faculty/observee/MyObservationPage'
+import MyObserversPage from './pages/faculty/observee/MyObserversPage'
+import ObservationFormsPage from './pages/faculty/observer/ObservationFormsPage'
+import ObserverRequestsPage from './pages/faculty/observer/ObserverRequestsPage'
+import PlaceholderPage from './pages/shared/PlaceholderPage'
 
-// pages anyone can open without being logged in
 const loggedOutPaths = ['/login', '/forgot-password', '/reset-password']
+
+const acPaths = [
+  '/dashboard',
+  '/template',
+  '/cycle-setup',
+  '/sign-ups',
+  '/observer-selection',
+  '/tracking',
+  '/cycle-kpi-report',
+]
+
+const facultyPaths = [
+  '/faculty/status',
+  '/my-observers',
+  '/my-observation',
+  '/observe-others',
+  '/observation-forms',
+  '/my-schedule',
+  '/survey',
+]
 
 export default function App() {
   const { roles } = useAuth()
   const loggedIn = roles.length > 0
+  const isACMember = roles.includes('AC Member')
+  // AC membership takes precedence for legacy accounts that currently return
+  // both strings. AC Members and Faculty use separate workspaces.
+  const isFaculty = roles.includes('Faculty') && !isACMember
   const { pathname, navigate } = useNavigation()
+  const defaultPath = isACMember ? '/dashboard' : '/faculty/status'
 
   useEffect(() => {
     if (!loggedIn && !loggedOutPaths.includes(pathname)) {
       navigate('/login', { replace: true })
-    } else if (loggedIn && pathname === '/') {
+    } else if (loggedIn && (pathname === '/' || pathname === '/login')) {
+      navigate(defaultPath, { replace: true })
+    } else if (loggedIn && acPaths.includes(pathname) && !isACMember) {
+      navigate('/faculty/status', { replace: true })
+    } else if (loggedIn && facultyPaths.includes(pathname) && !isFaculty) {
       navigate('/dashboard', { replace: true })
     } else if (
       loggedIn &&
-      ![
-        '/dashboard',
-        '/template',
-        '/cycle-setup',
-        '/sign-ups',
-        '/observer-selection',
-        '/tracking',
-        '/cycle-kpi-report',
-        '/my-observers',
-        '/my-observation',
-        '/observe-others',
-        '/my-schedule',
-        '/survey',
-        '/login',
-        '/reset-password',
-      ].includes(pathname)
+      ![...acPaths, ...facultyPaths, ...loggedOutPaths].includes(pathname)
     ) {
-      navigate('/dashboard', { replace: true })
+      navigate(defaultPath, { replace: true })
     }
-  }, [navigate, pathname, loggedIn])
+  }, [defaultPath, isACMember, isFaculty, loggedIn, navigate, pathname])
 
-  
   if (pathname === '/reset-password') {
     return <ResetPasswordPage />
   }
@@ -65,16 +79,14 @@ export default function App() {
     return null
   }
 
-  if (pathname === '/login') {
-    return <LoginPage />
+  if (
+    (acPaths.includes(pathname) && !isACMember) ||
+    (facultyPaths.includes(pathname) && !isFaculty)
+  ) {
+    return null
   }
 
-  let page =
-    role === 'Observee'
-      ? <ObserveeStatusPage />
-      : role === 'Observer'
-        ? <PlaceholderPage title="My status" />
-        : <DashboardPage />
+  let page = <DashboardPage />
   switch (pathname) {
     case '/template':
       page = <TemplatePage />
@@ -94,6 +106,9 @@ export default function App() {
     case '/cycle-kpi-report':
       page = <CycleKpiPage />
       break
+    case '/faculty/status':
+      page = <FacultyStatusPage />
+      break
     case '/my-observers':
       page = <MyObserversPage />
       break
@@ -101,13 +116,13 @@ export default function App() {
       page = <MyObservationPage />
       break
     case '/observe-others':
-      page =
-        role === 'Observee'
-          ? <PlaceholderPage title="Observe others" />
-          : <ObserverRequestsPage />
+      page = <ObserverRequestsPage />
+      break
+    case '/observation-forms':
+      page = <ObservationFormsPage />
       break
     case '/my-schedule':
-      page = <PlaceholderPage title="My schedule" />
+      page = <MySchedulePage />
       break
     case '/survey':
       page = <PlaceholderPage title="Survey" />
