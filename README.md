@@ -34,8 +34,8 @@ docker compose version
 
 1. **Clone the repo**
    ```bash
-   git clone <your-repo-url>
-   cd <your-repo-folder>
+   git clone <repo-url>
+   cd <repo-folder>
    ```
 
 2. **Create your `.env` file**
