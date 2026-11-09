@@ -7,5 +7,5 @@ export interface ReminderResult {
 }
 
 export function sendSignUpReminders(token: string) {
-  return post<ReminderResult>('/api/reminders', token)
+  return post<ReminderResult>('/api/reminders', {token})
 }
