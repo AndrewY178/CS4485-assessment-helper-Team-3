@@ -126,9 +126,7 @@ COURSE_SELECT = f"""
 
 CYCLE_SELECT = """
     SELECT
-        id,
-        semester_id,
-        semester_label,
+        semester,
         cycle_status,
         signup_deadline,
         observation_deadline,
@@ -139,16 +137,15 @@ CYCLE_SELECT = """
 
 CYCLE_UPSERT = """
     INSERT INTO evaluation_cycles (
-        semester_id,
-        semester_label,
+        semester,
         cycle_status,
         signup_deadline,
         observation_deadline,
         feedback_deadline
     ) 
-    VALUES (%s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
-        semester_label = VALUES(semester_label),
+        semester = VALUES(semester),
         cycle_status = VALUES(cycle_status),
         signup_deadline = VALUES(signup_deadline),
         observation_deadline = VALUES(observation_deadline),
@@ -823,7 +820,7 @@ def accept_observer_request(meeting_id):
         query(
             """
             UPDATE observation_requests
-            SET status = 'expired'
+            SET status ='expired'
             WHERE meeting_id = %s AND observer_id = %s AND status = 'pending'
             """,
             (meeting_id, g.user_id),
@@ -1060,19 +1057,16 @@ def get_faculty_schedule():
 def health():
     return jsonify(status="ok")
 
-if __name__ == "__main__":
-    # host: 0.0.0.0 allows for queries from across the wifi network (not just local host)
-    app.run(host="0.0.0.0", debug=True, port=5001)
-
-
 @app.route("/api/schedule") # grabs all the evaluation cycles, ordered by semester_id
+@ac_required
 def get_schedules():
-    rows = query(CYCLE_SELECT + " ORDER BY semester_id")
+    rows = query(CYCLE_SELECT)
     return jsonify(rows)
 
 
-@app.route("/api/schedule/<semester_id>", methods=["PUT"])
-def save_schedule(semester_id):
+@app.route("/api/schedule/<semester>", methods=["PUT"])
+@ac_required
+def save_schedule(semester):
     data = request.get_json(silent=True)
 
     if not isinstance(data, dict):
@@ -1103,14 +1097,12 @@ def save_schedule(semester_id):
     if not (deadlines[0] < deadlines[1] < deadlines[2]):
         return jsonify(error="Deadlines must be in chronological order"), 400
 
-    # Temporary label until semester naming is finalized.
-    semester_label = semester_id
-
+    #TODO: figure out what status to use
     query(
         CYCLE_UPSERT,
         (
-            semester_id,
-            semester_label,
+            semester,
+            "draft",
             deadlines[0].replace(tzinfo=None),
             deadlines[1].replace(tzinfo=None),
             deadlines[2].replace(tzinfo=None)
@@ -1121,3 +1113,7 @@ def save_schedule(semester_id):
     return jsonify(message="Evaluation cycle saved successfully")
 
 
+# DON'T PUT ANYTHING BELOW THIS
+if __name__ == "__main__":
+    # host: 0.0.0.0 allows for queries from across the wifi network (not just local host)
+    app.run(host="0.0.0.0", debug=True, port=5001)

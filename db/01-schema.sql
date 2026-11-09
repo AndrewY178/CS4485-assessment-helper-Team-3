@@ -146,9 +146,8 @@ CREATE TABLE reports (
 );
 
 CREATE TABLE evaluation_cycles (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    semester_id VARCHAR(20) NOT NULL UNIQUE,
-    semester_label VARCHAR(20) NOT NULL,
+    semester VARCHAR(20) PRIMARY KEY,
+    -- is in draft mode until it reaches the signup deadline (once signup deadline passes, can't be changed?)
     cycle_status ENUM('draft', 'signup', 'observation', 'feedback', 'closed')
         NOT NULL DEFAULT 'draft',
     signup_deadline DATETIME NOT NULL,
