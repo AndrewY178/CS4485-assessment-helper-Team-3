@@ -6,9 +6,6 @@ import type {
 } from '../types/api'
 import { post } from './client'
 
-// empty in development (Vite forwards /api to Flask); set VITE_API_URL elsewhere
-const BASE_URL = import.meta.env.VITE_API_URL ?? ''
-
 export class ApiError extends Error {
   status: number
 
