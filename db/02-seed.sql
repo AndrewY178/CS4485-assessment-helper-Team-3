@@ -344,7 +344,7 @@ SET email_verified_at = CURRENT_TIMESTAMP
 WHERE password_hash IS NOT NULL;
 
 INSERT INTO professors (professor_id, professor_name, professor_department)
-  SELECT id, 'Dev', 'CS' FROM users WHERE username = 'dev_user';
+  SELECT id, 'DEV', 'CS' FROM users WHERE username = 'dev_user';
 
 INSERT INTO assessment_committee (ac_id)
   SELECT id FROM users WHERE username = 'dev_user';
