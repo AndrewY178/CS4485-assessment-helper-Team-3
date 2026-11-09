@@ -8,6 +8,7 @@ from flask_cors import CORS
 from mysql.connector import Error, IntegrityError
 from dotenv import load_dotenv
 from auth import ac_required, auth_bp, faculty_required
+from emailservice import EmailServiceError, send_email
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
 from observer_approval import observer_approval_bp
@@ -464,6 +465,7 @@ def get_observe_list():
             ob_r.observer_id,
             p.professor_name,
             p.professor_department,
+            ob_r.status,
             0 AS currentObservationCount
         FROM observation_requests ob_r
         JOIN professors p ON p.professor_id = ob_r.observer_id
@@ -473,6 +475,389 @@ def get_observe_list():
     )
 
     return jsonify(observers)
+
+
+@app.route("/api/observers/accepted")
+def get_accepted_observers():
+    raw_observee_id = request.args.get("observee_id", "").strip()
+    signup_semester = request.args.get("signup_semester", "").strip()
+
+    if not raw_observee_id or not signup_semester:
+        return jsonify(error="observee_id and signup_semester are required"), 400
+
+    try:
+        observee_id = int(raw_observee_id)
+    except ValueError:
+        return jsonify(error="observee_id must be an integer"), 400
+
+    selected = query(
+        """
+        SELECT m.meeting_id
+        FROM observees o
+        LEFT JOIN courses c ON c.course_id = o.signup_course
+        LEFT JOIN meetings m ON m.course_id = o.signup_course
+        WHERE o.observee_id = %s AND o.signup_sem = %s
+        """,
+        (observee_id, signup_semester),
+    )
+
+    if not selected or selected[0]["meeting_id"] is None:
+        return jsonify([])
+
+    rows = query(
+        """
+        SELECT
+            observer_id,
+            professor_name,
+            professor_department,
+            selected_date
+        FROM observation_requests
+        JOIN professors
+            ON professors.professor_id = observation_requests.observer_id
+        WHERE observation_requests.meeting_id = %s
+          AND observation_requests.status = 'accepted'
+        """,
+        (selected[0]["meeting_id"],),
+    )
+
+    for row in rows:
+        if row["selected_date"] is not None:
+            row["selected_date"] = row["selected_date"].isoformat()
+
+    return jsonify(rows)
+
+
+@app.route("/api/observers/request", methods=["POST"])
+def send_observer_requests():
+    data = request.get_json(silent=True) or {}
+    signup_semester = str(data.get("signup_semester") or "").strip()
+    raw_observer_ids = data.get("observer_ids")
+
+    if data.get("observee_id") is None or not signup_semester or not isinstance(raw_observer_ids, list) or not raw_observer_ids:
+        return jsonify(error="observee_id, signup_semester, and observer_ids are required"), 400
+
+    try:
+        observee_id = int(data.get("observee_id"))
+        observer_ids = [int(observer_id) for observer_id in raw_observer_ids]
+    except (TypeError, ValueError):
+        return jsonify(error="observee_id and observer_ids must be integers"), 400
+
+    selected = query(
+        """
+        SELECT m.meeting_id
+        FROM observees o
+        LEFT JOIN meetings m ON m.course_id = o.signup_course
+        WHERE o.observee_id = %s AND o.signup_sem = %s
+        """,
+        (observee_id, signup_semester),
+    )
+    if not selected or selected[0]["meeting_id"] is None:
+        return jsonify(error="No meeting was found for this sign-up"), 404
+
+    meeting_id = selected[0]["meeting_id"]
+
+    def mark_pending(cur):
+        sent_ids = []
+        skipped = []
+        for observer_id in observer_ids:
+            cur.execute(
+                """
+                UPDATE observation_requests
+                SET status = 'pending', sent_at = NOW()
+                WHERE meeting_id = %s
+                  AND observer_id = %s
+                  AND status IN ('generated', 'approved')
+                """,
+                (meeting_id, observer_id),
+            )
+            if cur.rowcount == 1:
+                sent_ids.append(observer_id)
+            else:
+                skipped.append(observer_id)
+        return sent_ids, skipped
+
+    sent_ids, skipped = transaction(mark_pending)
+    if not sent_ids:
+        return jsonify(
+            error="None of the selected observers can be requested",
+            skipped=skipped,
+        ), 409
+
+    placeholders = ", ".join(["%s"] * len(sent_ids))
+    recipients = query(
+        f"""
+        SELECT p.professor_id AS observer_id, p.professor_name, u.email
+        FROM professors p
+        JOIN users u ON u.id = p.professor_id
+        WHERE p.professor_id IN ({placeholders})
+        """,
+        tuple(sent_ids),
+    )
+    observee_rows = query(
+        "SELECT professor_name FROM professors WHERE professor_id = %s",
+        (observee_id,),
+    )
+    observee_name = observee_rows[0]["professor_name"] if observee_rows else "An observee"
+    message = (
+        f"{observee_name} asked you to observe their class for {signup_semester}. "
+        "Log in to Assessment Helper to respond. The request expires after 48 hours."
+    )
+
+    email_error = None
+    sent = []
+    for recipient in recipients:
+        notified = False
+        if recipient["email"]:
+            try:
+                send_email(
+                    recipient["email"],
+                    message,
+                    to_name=recipient["professor_name"] or "",
+                )
+                notified = True
+            except EmailServiceError as exc:
+                email_error = str(exc)
+        sent.append({
+            "observer_id": recipient["observer_id"],
+            "professor_name": recipient["professor_name"],
+            "notified": notified,
+        })
+
+    return jsonify(sent=sent, skipped=skipped, emailError=email_error)
+
+
+def _iso_date(value):
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _observer_request_record(row, offered_dates):
+    return {
+        "meeting_id": row["meeting_id"],
+        "observee_id": row["observee_id"],
+        "observee_name": row["observee_name"],
+        "signup_semester": row["signup_sem"],
+        "course_department": row["course_department"],
+        "course_number": row["course_number"],
+        "section_number": row["section_number"],
+        "course_name": row["course_name"],
+        "course_day": row["course_day"],
+        "course_start_time": row["course_start_time"],
+        "course_end_time": row["course_end_time"],
+        "room_number": row["room_number"],
+        "offered_dates": offered_dates,
+        "selected_date": _iso_date(row["selected_date"]),
+        "status": row["status"],
+        "minutes_left": None if row["minutes_left"] is None else int(row["minutes_left"]),
+    }
+
+
+def _load_observer_requests(observer_id):
+    query(
+        """
+        UPDATE observation_requests
+        SET status = 'expired'
+        WHERE observer_id = %s
+          AND status = 'pending'
+          AND sent_at IS NOT NULL
+          AND sent_at < NOW() - INTERVAL 48 HOUR
+        """,
+        (observer_id,),
+        fetch=False,
+    )
+    rows = query(
+        """
+        SELECT
+            ob_r.meeting_id,
+            ob_r.status,
+            ob_r.selected_date,
+            o.observee_id,
+            o.signup_sem,
+            observee.professor_name AS observee_name,
+            c.department AS course_department,
+            c.course_number,
+            c.section_number,
+            c.course_name,
+            c.course_day,
+            c.course_start_time,
+            c.course_end_time,
+            c.room_number,
+            TIMESTAMPDIFF(
+                MINUTE,
+                NOW(),
+                ob_r.sent_at + INTERVAL 48 HOUR
+            ) AS minutes_left
+        FROM observation_requests ob_r
+        JOIN meetings m ON m.meeting_id = ob_r.meeting_id
+        JOIN observees o ON o.signup_course = m.course_id
+        JOIN professors observee ON observee.professor_id = o.observee_id
+        LEFT JOIN courses c ON c.course_id = m.course_id
+        WHERE ob_r.observer_id = %s
+          AND ob_r.status IN ('pending', 'accepted', 'confirmed')
+          AND (
+              ob_r.status <> 'pending'
+              OR ob_r.sent_at IS NULL
+              OR ob_r.sent_at >= NOW() - INTERVAL 48 HOUR
+          )
+        ORDER BY ob_r.status = 'pending' DESC, ob_r.meeting_id
+        """,
+        (observer_id,),
+    )
+    if not rows:
+        return []
+
+    pairs = {(row["observee_id"], row["signup_sem"]) for row in rows}
+    placeholders = " OR ".join(["(observee_id = %s AND signup_sem = %s)"] * len(pairs))
+    params = [value for pair in pairs for value in pair]
+    date_rows = query(
+        f"""
+        SELECT observee_id, signup_sem, offered_date
+        FROM signup_dates
+        WHERE {placeholders}
+        ORDER BY offered_date
+        """,
+        tuple(params),
+    )
+    dates_by_signup = {}
+    for date_row in date_rows:
+        key = (date_row["observee_id"], date_row["signup_sem"])
+        dates_by_signup.setdefault(key, []).append(_iso_date(date_row["offered_date"]))
+
+    return [
+        _observer_request_record(
+            row,
+            dates_by_signup.get((row["observee_id"], row["signup_sem"]), []),
+        )
+        for row in rows
+    ]
+
+
+def _pending_request_for_observer(observer_id, meeting_id):
+    rows = query(
+        """
+        SELECT
+            ob_r.status,
+            ob_r.sent_at,
+            o.observee_id,
+            o.signup_sem
+        FROM observation_requests ob_r
+        JOIN meetings m ON m.meeting_id = ob_r.meeting_id
+        JOIN observees o ON o.signup_course = m.course_id
+        WHERE ob_r.meeting_id = %s
+          AND ob_r.observer_id = %s
+        """,
+        (meeting_id, observer_id),
+    )
+    return rows[0] if rows else None
+
+
+@app.route("/api/observer-requests")
+@faculty_required
+def get_observer_requests():
+    return jsonify(_load_observer_requests(g.user_id))
+
+
+@app.route("/api/observer-requests/<int:meeting_id>/accept", methods=["POST"])
+@faculty_required
+def accept_observer_request(meeting_id):
+    selected_date = str((request.get_json(silent=True) or {}).get("selected_date") or "").strip()
+    if not selected_date:
+        return jsonify(error="selected_date is required"), 400
+
+    current = _pending_request_for_observer(g.user_id, meeting_id)
+    if current is None:
+        return jsonify(error="Observation request was not found"), 404
+    if current["observee_id"] == g.user_id:
+        return jsonify(error="You cannot accept your own observation request"), 409
+    if current["status"] != "pending":
+        return jsonify(error="This request is no longer pending"), 409
+
+    still_pending = query(
+        """
+        SELECT meeting_id
+        FROM observation_requests
+        WHERE meeting_id = %s
+          AND observer_id = %s
+          AND status = 'pending'
+          AND (sent_at IS NULL OR sent_at >= NOW() - INTERVAL 48 HOUR)
+        """,
+        (meeting_id, g.user_id),
+    )
+    if not still_pending:
+        query(
+            """
+            UPDATE observation_requests
+            SET status = 'expired'
+            WHERE meeting_id = %s AND observer_id = %s AND status = 'pending'
+            """,
+            (meeting_id, g.user_id),
+            fetch=False,
+        )
+        return jsonify(error="This request has expired"), 409
+
+    offered = query(
+        """
+        SELECT offered_date
+        FROM signup_dates
+        WHERE observee_id = %s AND signup_sem = %s AND offered_date = %s
+        """,
+        (current["observee_id"], current["signup_sem"], selected_date),
+    )
+    if not offered:
+        return jsonify(error="Choose one of the dates this observee offered"), 400
+
+    def schedule_acceptance(cur):
+        cur.execute(
+            """
+            UPDATE observation_requests
+            SET status = 'accepted', selected_date = %s, responded_at = NOW()
+            WHERE meeting_id = %s
+              AND observer_id = %s
+              AND status = 'pending'
+            """,
+            (selected_date, meeting_id, g.user_id),
+        )
+        cur.execute(
+            """
+            UPDATE meetings
+            SET observer_id = %s, meeting_date = %s
+            WHERE meeting_id = %s
+            """,
+            (g.user_id, selected_date, meeting_id),
+        )
+
+    transaction(schedule_acceptance)
+    return jsonify(
+        meeting_id=meeting_id,
+        status="accepted",
+        selected_date=selected_date,
+    )
+
+
+@app.route("/api/observer-requests/<int:meeting_id>/decline", methods=["POST"])
+@faculty_required
+def decline_observer_request(meeting_id):
+    current = _pending_request_for_observer(g.user_id, meeting_id)
+    if current is None:
+        return jsonify(error="Observation request was not found"), 404
+    if current["status"] != "pending":
+        return jsonify(error="This request is no longer pending"), 409
+
+    updated = query(
+        """
+        UPDATE observation_requests
+        SET status = 'declined', responded_at = NOW()
+        WHERE meeting_id = %s AND observer_id = %s AND status = 'pending'
+        """,
+        (meeting_id, g.user_id),
+        fetch=False,
+    )
+    if not updated:
+        return jsonify(error="This request is no longer pending"), 409
+    return jsonify(meeting_id=meeting_id, status="declined")
 
 
 @app.route("/api/observers", methods=["POST"])

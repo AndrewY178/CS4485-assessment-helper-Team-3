@@ -4,10 +4,7 @@ import CandidatePanel from '../../components/observer-selection/CandidatePanel'
 import ObserveeSelectionTable from '../../components/observer-selection/ObserveeSelectionTable'
 import SelectionSummary from '../../components/observer-selection/SelectionSummary'
 import { useAuth } from '../../context/AuthContext'
-import {
-  observerSelectionContext,
-} from '../../data/observerSelectionMockData'
-import type { ObserverCandidateResponse, ObserverSelectionResponse, ObserveeResponse} from '../../types/api'
+import type { ObserverSelectionResponse, ObserveeResponse} from '../../types/api'
 import '../../styles/observer-selection.css'
 import { generateObserverLists, getObserverList, regenerateObserverList } from '../../api/observers'
 import { approveObserverList, reopenObserverList } from '../../api/observerApproval'
@@ -43,8 +40,13 @@ function toObserverSelectionRow(
 ): ObserverSelectionResponse {
   return {
     observationId: String(observee.id),
-    semesterId: observee.signup_sem,
-    observee: observee,
+    semesterId: observee.signup_sem ?? '—',
+    observee: {
+      ...observee,
+      name: observee.name ?? '—',
+      department: observee.department ?? '—',
+      signup_sem: observee.signup_sem ?? '—',
+    },
     course: {
       code: [
         observee.course_department,
@@ -59,38 +61,6 @@ function toObserverSelectionRow(
     status: observee.status,
     recommendations: [],
     selectedCandidateIds: [],
-  }
-}
-
-function selectedEligibleIds(recommendations: ObserverCandidateResponse[]) {
-  return recommendations
-    .map((candidate) => candidate.observer_id)
-    .slice(0, 5)
-}
-
-function generatedState(
-  row: ObserverSelectionResponse,
-  recommendations: ObserverCandidateResponse[],
-): ObserverSelectionResponse {
-
-  if (recommendations.length === 0) {
-    return {
-      ...row,
-      status: 'no_observers',
-      recommendations,
-      selectedCandidateIds: [],
-      warning: 'No eligible observers were found for this course and meeting time.',
-    }
-  }
-
-  return {
-    ...row,
-    status: 'generated',
-    recommendations: recommendations.slice(0, 5),
-    selectedCandidateIds: selectedEligibleIds(recommendations),
-    warning: recommendations.length < 5
-      ? `Only ${recommendations.length} eligible observer candidate${recommendations.length === 1 ? ' was' : 's were'} found.`
-      : undefined,
   }
 }
 
@@ -111,9 +81,7 @@ export default function ObserverSelectionPage() {
         setIsLoading(true)
         setError(null)
 
-        const observees = await getObservees(
-          observerSelectionContext.currentSemester.label,
-        )
+        const observees = await getObservees()
 
         if (!cancelled) {
           const nextRows = observees.map(toObserverSelectionRow)
@@ -194,8 +162,10 @@ export default function ObserverSelectionPage() {
   }
 
   async function runObserverSelection() {
-    if (!observerSelectionContext.signupDeadlinePassed) {
-      showNotice('Observer selection is disabled until the sign-up deadline passes.')
+    // TODO: needs backend field for the sign-up deadline
+    const signupSemester = rows[0]?.semesterId
+    if (!signupSemester || signupSemester === '—') {
+      showNotice('No sign-up semester is available.')
       return
     }
 
@@ -206,13 +176,9 @@ export default function ObserverSelectionPage() {
     }
 
     try {
-      const result = await generateObserverLists(
-        observerSelectionContext.currentSemester.label,
-      )
+      const result = await generateObserverLists(signupSemester)
 
-      const refreshedObservees = await getObservees(
-        observerSelectionContext.currentSemester.label,
-      )
+      const refreshedObservees = await getObservees(signupSemester)
 
       const failures = new Map(
         result.failures.map((item) => [
@@ -439,11 +405,10 @@ export default function ObserverSelectionPage() {
       <header className="observer-selection-page__header">
         <div>
           <h1>Observer selection</h1>
-          <p>{observerSelectionContext.currentSemester.label} · Review recommendations before Observees send invitations.</p>
+          <p>{rows[0]?.semesterId ?? '—'} · Review recommendations before Observees send invitations.</p>
         </div>
         <button
           className="observer-selection-button observer-selection-button--primary"
-          disabled={!observerSelectionContext.signupDeadlinePassed}
           onClick={runObserverSelection}
           type="button"
         >

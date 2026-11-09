@@ -195,6 +195,45 @@ export interface ObserverCandidateResponse {
   professor_name: string
   professor_department: string
   currentObservationCount: number
+  status?: string | null
+}
+
+export interface SendObserverRequestsResponse {
+  sent: Array<{
+    observer_id: number
+    professor_name: string | null
+    notified: boolean
+  }>
+  skipped: number[]
+  emailError: string | null
+}
+
+// GET /api/observer-requests
+export interface ObserverRequestResponse {
+  meeting_id: number
+  observee_id: number
+  observee_name: string | null
+  signup_semester: string | null
+  course_department: string | null
+  course_number: string | null
+  section_number: string | null
+  course_name: string | null
+  course_day: string | null
+  course_start_time: string | null
+  course_end_time: string | null
+  room_number: string | null
+  offered_dates: string[]
+  selected_date: string | null
+  status: 'pending' | 'accepted' | 'confirmed'
+  minutes_left: number | null
+}
+
+// GET /api/observers/accepted?observee_id=&signup_semester=
+export interface AcceptedObserverResponse {
+  observer_id: number
+  professor_name: string | null
+  professor_department: string | null
+  selected_date: string | null
 }
 
 // PROPOSED: GET /api/observer-selection?semesterId={semesterId}
