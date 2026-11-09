@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from auth import ac_required, auth_bp, faculty_required
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
+from observer_approval import observer_approval_bp
 
 from db import query, pool, transaction
 
@@ -21,6 +22,7 @@ CORS(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(reminders_bp)
 app.register_blueprint(signup_dates_bp)
+app.register_blueprint(observer_approval_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
@@ -295,6 +297,10 @@ def faculty_schedule_record(row):
     }
 
 
+class ObserverListLocked(ValueError):
+    """The list can't be regenerated because requests already went past 'generated'."""
+
+
 def generate_observer_list(observee_id, signup_semester):
     selected = query(
         """
@@ -337,11 +343,25 @@ def generate_observer_list(observee_id, signup_semester):
     )
 
     def replace_rows(cursor):
+        # once the AC approved the list (or requests were sent) it is no longer regenerated
+        cursor.execute(
+            """
+            SELECT 1
+            FROM observation_requests
+            WHERE meeting_id = %s AND status <> 'generated'
+            LIMIT 1
+            """,
+            (course["meeting_id"],),
+        )
+        if cursor.fetchone():
+            raise ObserverListLocked(
+                "The observer list was already approved or requests were sent"
+            )
         # delete all the old generated observers if regenerating
         cursor.execute(
             """
             DELETE FROM observation_requests
-            WHERE meeting_id = %s
+            WHERE meeting_id = %s AND status = 'generated'
             """,
             (course["meeting_id"],),
         )
@@ -470,6 +490,8 @@ def generate_single_observer_list():
 
     try:
         candidates = generate_observer_list(observee_id, signup_semester)
+    except ObserverListLocked as error:
+        return jsonify(error=str(error)), 409
     except ValueError as error:
         return jsonify(error=str(error)), 404
 

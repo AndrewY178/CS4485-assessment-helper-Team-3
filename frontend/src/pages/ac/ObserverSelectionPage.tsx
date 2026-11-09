@@ -10,6 +10,7 @@ import {
 import type { ObserverCandidateResponse, ObserverSelectionResponse, ObserveeResponse} from '../../types/api'
 import '../../styles/observer-selection.css'
 import { generateObserverLists, getObserverList, regenerateObserverList } from '../../api/observers'
+import { approveObserverList, reopenObserverList } from '../../api/observerApproval'
 import { ApiError } from '../../api/auth'
 import { getObservees } from '../../api/observees'
 
@@ -94,7 +95,7 @@ function generatedState(
 }
 
 export default function ObserverSelectionPage() {
-  const { roles } = useAuth()
+  const { roles, token } = useAuth()
   const [rows, setRows] = useState<ObserverSelectionResponse[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -309,7 +310,7 @@ export default function ObserverSelectionPage() {
     }))
   }
 
-  function confirmApproval() {
+  async function confirmApproval() {
     const validIds = selectedRow.selectedCandidateIds.filter((id) => (
       selectedRow.recommendations.some((candidate) => (
         candidate.observer_id === id
@@ -322,26 +323,106 @@ export default function ObserverSelectionPage() {
       return
     }
 
-    // TODO(API): PUT /api/observer-selection/{observationId}/approval with
-    // { candidateIds: validIds }. Flask must validate every ID before saving.
+    if (!token) {
+      setApprovalOpen(false)
+      showNotice('Your session is unavailable. Please sign in again.')
+      return
+    }
+
+    try {
+      await approveObserverList(
+        selectedRow.observee.id,
+        selectedRow.semesterId,
+        validIds,
+        token,
+      )
+    } catch (caught) {
+      setApprovalOpen(false)
+      showNotice(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Unable to approve the candidate list.',
+      )
+      return
+    }
+
+    // the server keeps only the approved candidates, so the page does the same
     setRows((current) => current.map((row) => (
       row.observationId === selectedRow.observationId
-        ? { ...row, status: 'approved', selectedCandidateIds: validIds, warning: undefined }
+        ? {
+            ...row,
+            status: 'approved',
+            observee: { ...row.observee, status: 'approved' },
+            recommendations: row.recommendations.filter((candidate) => (
+              validIds.includes(candidate.observer_id)
+            )),
+            selectedCandidateIds: validIds,
+            warning: undefined,
+          }
         : row
     )))
     setApprovalOpen(false)
-    showNotice('Candidate list approved in this browser session. No invitations were sent.')
+    showNotice('Candidate list approved. No invitations were sent.')
   }
 
-  // TODO: make this send a put request that updates the observee status
-  function reopenList() {
+  async function reopenList() {
     if (selectedRow.status !== 'approved') return
+
+    if (!token) {
+      showNotice('Your session is unavailable. Please sign in again.')
+      return
+    }
+
+    let previouslyApproved: string[]
+    try {
+      const reopened = await reopenObserverList(
+        selectedRow.observee.id,
+        selectedRow.semesterId,
+        token,
+      )
+      previouslyApproved = reopened.previously_approved.map(String)
+    } catch (caught) {
+      showNotice(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Unable to reopen the approved list.',
+      )
+      return
+    }
+
+    // the candidates that were not approved were deleted, so run the matching again
+    let recommendations: ObserverCandidateResponse[] = []
+    let rematched = true
+    try {
+      recommendations = await regenerateObserverList(
+        selectedRow.observee.id,
+        selectedRow.semesterId,
+      )
+    } catch {
+      rematched = false
+    }
+
     setRows((current) => current.map((row) => (
       row.observationId === selectedRow.observationId
-        ? { ...row, status: 'generated' }
+        ? {
+            ...row,
+            status: 'generated',
+            observee: { ...row.observee, status: 'generated' },
+            recommendations,
+            selectedCandidateIds: recommendations
+              .filter((candidate) => previouslyApproved.includes(String(candidate.observer_id)))
+              .map((candidate) => candidate.observer_id),
+            warning: rematched && recommendations.length === 0
+              ? 'No eligible observers were found for this course and meeting time.'
+              : undefined,
+          }
         : row
     )))
-    showNotice('Approved list reopened for editing in this browser session.')
+    showNotice(
+      rematched
+        ? 'Approved list reopened. Your previous picks are selected.'
+        : 'List reopened, but the candidates could not be reloaded. Use Refresh to try again.',
+    )
   }
 
   if (!roles.includes('AC Member')) {
