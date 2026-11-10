@@ -1,24 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/auth'
-import { TEMPORARY_SCHEDULE_SEMESTER } from '../../api/schedule'
+import {
+  getFacultyCourses,
+  TEMPORARY_SCHEDULE_SEMESTER,
+  type FacultyCourse,
+} from '../../api/schedule'
 import { getSignupDates, saveSignupDates } from '../../api/signupDates'
 import { useAuth } from '../../context/AuthContext'
 import { AppLink } from '../../context/NavigationContext'
 
-const courses = [
-  {
-    id: 'cs-1337-002',
-    name: 'CS 1337.002 - Computer Science I',
-    schedule: 'MW 8:30-9:45 AM - ECSS 2.410',
-  },
-  {
-    id: 'cs-2336-001',
-    name: 'CS 2336.001 - Computer Science II',
-    schedule: 'TR 11:30 AM-12:45 PM - ECSW 1.315',
-  },
-]
-
-const initialDates = ['2026-11-03', '2026-11-05', '2026-11-10']
+const initialDates: string[] = []
 
 function formatDate(value: string) {
   const date = new Date(`${value}T12:00:00`)
@@ -29,7 +20,8 @@ function formatDate(value: string) {
 }
 
 export default function FacultyStatusPage() {
-  const [selectedCourse, setSelectedCourse] = useState(courses[0].id)
+  const [courses, setCourses] = useState<FacultyCourse[]>([])
+  const [selectedCourse, setSelectedCourse] = useState<number | null>(null)
   const [dates, setDates] = useState(initialDates)
   const [newDate, setNewDate] = useState('')
   const [notice, setNotice] = useState('')
@@ -41,9 +33,16 @@ export default function FacultyStatusPage() {
     if (!token) return
 
     const controller = new AbortController()
-    void getSignupDates(TEMPORARY_SCHEDULE_SEMESTER, token, controller.signal)
+    void getFacultyCourses(TEMPORARY_SCHEDULE_SEMESTER, token, controller.signal)
+      .then((available) => {
+        if (controller.signal.aborted) return
+        setCourses(available.courses)
+        setSelectedCourse(available.courses[0]?.course_id ?? null)
+        return getSignupDates(TEMPORARY_SCHEDULE_SEMESTER, token, controller.signal)
+      })
       .then((saved) => {
-        if (controller.signal.aborted || saved.dates.length === 0) return
+        if (!saved || controller.signal.aborted) return
+        setSelectedCourse(saved.course_id)
         setDates(saved.dates)
         setSubmitted(true)
       })
@@ -65,7 +64,7 @@ export default function FacultyStatusPage() {
 
   async function submitSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selectedCourse) {
+    if (selectedCourse === null) {
       setNotice('Choose a course before submitting your sign-up.')
       return
     }
@@ -78,7 +77,7 @@ export default function FacultyStatusPage() {
       return
     }
     try {
-      const saved = await saveSignupDates(TEMPORARY_SCHEDULE_SEMESTER, dates, token)
+      const saved = await saveSignupDates(TEMPORARY_SCHEDULE_SEMESTER, selectedCourse, dates, token)
       setDates(saved.dates)
       setSubmitted(true)
       setNotice('Your sign-up has been saved. You can update your course and dates until the deadline.')
@@ -89,7 +88,7 @@ export default function FacultyStatusPage() {
   }
 
   function cancelSignUp() {
-    setSelectedCourse(courses[0].id)
+    setSelectedCourse(courses[0]?.course_id ?? null)
     setDates(initialDates)
     setNewDate('')
     setSubmitted(false)
@@ -130,19 +129,19 @@ export default function FacultyStatusPage() {
           <div className="course-options">
             {courses.map((course) => (
               <label
-                className={`course-option${selectedCourse === course.id ? ' course-option--selected' : ''}`}
-                key={course.id}
+                className={`course-option${selectedCourse === course.course_id ? ' course-option--selected' : ''}`}
+                key={course.course_id}
               >
                 <input
-                  checked={selectedCourse === course.id}
+                  checked={selectedCourse === course.course_id}
                   name="course"
-                  onChange={() => setSelectedCourse(course.id)}
+                  onChange={() => setSelectedCourse(course.course_id)}
                   type="radio"
-                  value={course.id}
+                  value={course.course_id}
                 />
                 <span>
-                  <strong>{course.name}</strong>
-                  <small>{course.schedule}</small>
+                  <strong>{course.department} {course.course_number}.{course.section_number} - {course.course_name}</strong>
+                  <small>{course.course_day ?? 'Schedule unavailable'} {course.course_start_time ?? ''}-{course.course_end_time ?? ''} {course.room_number ? `- ${course.room_number}` : ''}</small>
                 </span>
               </label>
             ))}

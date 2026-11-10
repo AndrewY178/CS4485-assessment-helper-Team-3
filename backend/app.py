@@ -1023,6 +1023,34 @@ def get_faculty_schedule():
     })
     
 
+@app.route("/api/faculty/courses")
+@faculty_required
+def get_faculty_courses():
+    semester = request.args.get("semester", "").strip()
+    if not semester:
+        return jsonify(error="semester is required"), 400
+
+    rows = query(
+        """
+        SELECT
+            course_id,
+            department,
+            course_number,
+            section_number,
+            course_name,
+            course_day,
+            course_start_time,
+            course_end_time,
+            room_number
+        FROM courses
+        WHERE prof_id = %s AND semester = %s
+        ORDER BY course_number, section_number
+        """,
+        (g.user_id, semester),
+    )
+    return jsonify({"semester": semester, "courses": rows})
+
+
 @app.route("/api/health")
 def health():
     return jsonify(status="ok")
