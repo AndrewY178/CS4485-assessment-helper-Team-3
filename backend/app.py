@@ -459,6 +459,9 @@ def get_observe_list():
         (observee_id, signup_semester),
     )
 
+    if not selected or selected[0]["meeting_id"] is None:
+        return jsonify([])
+
     observers = query(
         """
         SELECT DISTINCT
@@ -466,6 +469,7 @@ def get_observe_list():
             p.professor_name,
             p.professor_department,
             ob_r.status,
+            ob_r.selected_date,
             0 AS currentObservationCount
         FROM observation_requests ob_r
         JOIN professors p ON p.professor_id = ob_r.observer_id
@@ -473,6 +477,10 @@ def get_observe_list():
         """,
         (selected[0]["meeting_id"],)
     )
+
+    for row in observers:
+        if row["selected_date"] is not None:
+            row["selected_date"] = row["selected_date"].isoformat()
 
     return jsonify(observers)
 
@@ -544,7 +552,7 @@ def send_observer_requests():
 
     selected = query(
         """
-        SELECT m.meeting_id
+        SELECT m.meeting_id, m.observer_id
         FROM observees o
         LEFT JOIN meetings m ON m.course_id = o.signup_course
         WHERE o.observee_id = %s AND o.signup_sem = %s
@@ -553,6 +561,8 @@ def send_observer_requests():
     )
     if not selected or selected[0]["meeting_id"] is None:
         return jsonify(error="No meeting was found for this sign-up"), 404
+    if selected[0]["observer_id"] is not None:
+        return jsonify(error="An observation is already scheduled for this class"), 409
 
     meeting_id = selected[0]["meeting_id"]
 
@@ -624,6 +634,15 @@ def send_observer_requests():
         })
 
     return jsonify(sent=sent, skipped=skipped, emailError=email_error)
+
+
+MAX_CONFIRMED_OBSERVATIONS = 3
+
+
+class ObservationRuleError(Exception):
+    def __init__(self, message, status_code):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def _iso_date(value):
@@ -699,8 +718,10 @@ def _load_observer_requests(observer_id):
           AND ob_r.status IN ('pending', 'accepted', 'confirmed')
           AND (
               ob_r.status <> 'pending'
-              OR ob_r.sent_at IS NULL
-              OR ob_r.sent_at >= NOW() - INTERVAL 48 HOUR
+              OR (
+                  ob_r.sent_at IS NOT NULL
+                  AND ob_r.sent_at >= NOW() - INTERVAL 48 HOUR
+              )
           )
         ORDER BY ob_r.status = 'pending' DESC, ob_r.meeting_id
         """,
@@ -774,24 +795,29 @@ def accept_observer_request(meeting_id):
         return jsonify(error="You cannot accept your own observation request"), 409
     if current["status"] != "pending":
         return jsonify(error="This request is no longer pending"), 409
+    if current["sent_at"] is None:
+        return jsonify(error="This request is no longer pending"), 409
 
-    still_pending = query(
+    expired = query(
         """
         SELECT meeting_id
         FROM observation_requests
         WHERE meeting_id = %s
           AND observer_id = %s
           AND status = 'pending'
-          AND (sent_at IS NULL OR sent_at >= NOW() - INTERVAL 48 HOUR)
+          AND sent_at < NOW() - INTERVAL 48 HOUR
         """,
         (meeting_id, g.user_id),
     )
-    if not still_pending:
+    if expired:
         query(
             """
             UPDATE observation_requests
             SET status = 'expired'
-            WHERE meeting_id = %s AND observer_id = %s AND status = 'pending'
+            WHERE meeting_id = %s
+              AND observer_id = %s
+              AND status = 'pending'
+              AND sent_at < NOW() - INTERVAL 48 HOUR
             """,
             (meeting_id, g.user_id),
             fetch=False,
@@ -811,25 +837,55 @@ def accept_observer_request(meeting_id):
 
     def schedule_acceptance(cur):
         cur.execute(
+            "SELECT observer_id FROM meetings WHERE meeting_id = %s FOR UPDATE",
+            (meeting_id,),
+        )
+        meeting = cur.fetchone()
+        if meeting is None:
+            raise ObservationRuleError("Observation request was not found", 404)
+        if meeting["observer_id"] is not None:
+            raise ObservationRuleError("This observation is already scheduled", 409)
+
+        cur.execute(
+            """
+            SELECT status
+            FROM observation_requests
+            WHERE observer_id = %s
+            FOR UPDATE
+            """,
+            (g.user_id,),
+        )
+        confirmed = sum(
+            1
+            for row in cur.fetchall()
+            if row["status"] in ("accepted", "confirmed")
+        )
+        if confirmed >= MAX_CONFIRMED_OBSERVATIONS:
+            raise ObservationRuleError(
+                "You already have 3 confirmed observations",
+                409,
+            )
+
+        cur.execute(
             """
             UPDATE observation_requests
             SET status = 'accepted', selected_date = %s, responded_at = NOW()
             WHERE meeting_id = %s
               AND observer_id = %s
               AND status = 'pending'
+              AND sent_at IS NOT NULL
+              AND sent_at >= NOW() - INTERVAL 48 HOUR
             """,
             (selected_date, meeting_id, g.user_id),
         )
-        cur.execute(
-            """
-            UPDATE meetings
-            SET observer_id = %s, meeting_date = %s
-            WHERE meeting_id = %s
-            """,
-            (g.user_id, selected_date, meeting_id),
-        )
+        if cur.rowcount != 1:
+            raise ObservationRuleError("This request is no longer pending", 409)
 
-    transaction(schedule_acceptance)
+    try:
+        transaction(schedule_acceptance)
+    except ObservationRuleError as exc:
+        return jsonify(error=str(exc)), exc.status_code
+
     return jsonify(
         meeting_id=meeting_id,
         status="accepted",
@@ -845,6 +901,32 @@ def decline_observer_request(meeting_id):
         return jsonify(error="Observation request was not found"), 404
     if current["status"] != "pending":
         return jsonify(error="This request is no longer pending"), 409
+    if current["sent_at"] is not None:
+        expired = query(
+            """
+            SELECT meeting_id
+            FROM observation_requests
+            WHERE meeting_id = %s
+              AND observer_id = %s
+              AND status = 'pending'
+              AND sent_at < NOW() - INTERVAL 48 HOUR
+            """,
+            (meeting_id, g.user_id),
+        )
+        if expired:
+            query(
+                """
+                UPDATE observation_requests
+                SET status = 'expired'
+                WHERE meeting_id = %s
+                  AND observer_id = %s
+                  AND status = 'pending'
+                  AND sent_at < NOW() - INTERVAL 48 HOUR
+                """,
+                (meeting_id, g.user_id),
+                fetch=False,
+            )
+            return jsonify(error="This request has expired"), 409
 
     updated = query(
         """
@@ -858,6 +940,123 @@ def decline_observer_request(meeting_id):
     if not updated:
         return jsonify(error="This request is no longer pending"), 409
     return jsonify(meeting_id=meeting_id, status="declined")
+
+
+@app.route("/api/observers/confirm", methods=["POST"])
+@faculty_required
+def confirm_observer():
+    data = request.get_json(silent=True) or {}
+    signup_semester = str(data.get("signup_semester") or "").strip()
+
+    try:
+        observer_id = int(data.get("observer_id"))
+    except (TypeError, ValueError):
+        return jsonify(error="signup_semester and observer_id are required"), 400
+
+    if not signup_semester:
+        return jsonify(error="signup_semester and observer_id are required"), 400
+    if observer_id == g.user_id:
+        return jsonify(error="You cannot accept yourself as the observer"), 409
+
+    selected = query(
+        """
+        SELECT m.meeting_id
+        FROM observees o
+        LEFT JOIN meetings m ON m.course_id = o.signup_course
+        WHERE o.observee_id = %s AND o.signup_sem = %s
+        """,
+        (g.user_id, signup_semester),
+    )
+    if not selected or selected[0]["meeting_id"] is None:
+        return jsonify(error="No meeting was found for this sign-up"), 404
+
+    meeting_id = selected[0]["meeting_id"]
+
+    def schedule_confirmation(cur):
+        cur.execute(
+            """
+            SELECT observer_id
+            FROM meetings
+            WHERE meeting_id = %s
+            FOR UPDATE
+            """,
+            (meeting_id,),
+        )
+        meeting = cur.fetchone()
+        if meeting is None:
+            raise ObservationRuleError("No meeting was found for this sign-up", 404)
+        if meeting["observer_id"] is not None:
+            raise ObservationRuleError(
+                "An observation is already scheduled for this class",
+                409,
+            )
+
+        cur.execute(
+            """
+            SELECT status, selected_date
+            FROM observation_requests
+            WHERE meeting_id = %s AND observer_id = %s
+            FOR UPDATE
+            """,
+            (meeting_id, observer_id),
+        )
+        request_row = cur.fetchone()
+        if (
+            request_row is None
+            or request_row["status"] != "accepted"
+            or request_row["selected_date"] is None
+        ):
+            raise ObservationRuleError(
+                "Accept an observer only after they have accepted a date",
+                409,
+            )
+
+        cur.execute(
+            """
+            UPDATE meetings
+            SET observer_id = %s, meeting_date = %s
+            WHERE meeting_id = %s AND observer_id IS NULL
+            """,
+            (observer_id, request_row["selected_date"], meeting_id),
+        )
+        if cur.rowcount != 1:
+            raise ObservationRuleError(
+                "An observation is already scheduled for this class",
+                409,
+            )
+
+        cur.execute(
+            """
+            UPDATE observation_requests
+            SET status = 'confirmed'
+            WHERE meeting_id = %s AND observer_id = %s AND status = 'accepted'
+            """,
+            (meeting_id, observer_id),
+        )
+        cur.execute(
+            """
+            UPDATE observation_requests
+            SET status = 'not_selected'
+            WHERE meeting_id = %s
+              AND observer_id <> %s
+              AND status IN ('generated', 'approved', 'pending', 'accepted')
+            """,
+            (meeting_id, observer_id),
+        )
+        return _iso_date(request_row["selected_date"])
+
+    try:
+        selected_date = transaction(schedule_confirmation)
+    except ObservationRuleError as exc:
+        return jsonify(error=str(exc)), exc.status_code
+    except IntegrityError:
+        return jsonify(error="That observer cannot be scheduled"), 409
+
+    return jsonify(
+        observer_id=observer_id,
+        status="confirmed",
+        selected_date=selected_date,
+    )
 
 
 @app.route("/api/observers", methods=["POST"])

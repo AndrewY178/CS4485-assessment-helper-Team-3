@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../../api/auth'
 import { getObservees } from '../../../api/observees'
-import { getAcceptedObservers, getObserverList, sendObserverRequests } from '../../../api/observers'
+import { confirmObserver, getObserverList, sendObserverRequests } from '../../../api/observers'
 import { useAuth } from '../../../context/AuthContext'
-import type {
-  AcceptedObserverResponse,
-  ObserveeResponse,
-  ObserverCandidateResponse,
-} from '../../../types/api'
+import type { ObserveeResponse, ObserverCandidateResponse } from '../../../types/api'
 
 function formatTime(time: string | null): string {
   if (!time) return '—'
@@ -37,7 +33,7 @@ function formatObserveeCourse(observee: ObserveeResponse): string {
   return label || '—'
 }
 
-function formatSelectedDate(value: string | null): string {
+function formatSelectedDate(value: string | null | undefined): string {
   if (!value) return '—'
 
   const parsed = Date.parse(`${value}T00:00:00Z`)
@@ -52,14 +48,14 @@ function formatSelectedDate(value: string | null): string {
 }
 
 export default function MyObserversPage() {
-  const { userId } = useAuth()
+  const { token, userId } = useAuth()
   const [observers, setObservers] = useState<ObserverCandidateResponse[]>([])
-  const [accepted, setAccepted] = useState<AcceptedObserverResponse[]>([])
   const [courseLabel, setCourseLabel] = useState('—')
   const [selected, setSelected] = useState<string[]>([])
   const [notice, setNotice] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [acceptingId, setAcceptingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [signupSemester, setSignupSemester] = useState<string | null>(null)
 
@@ -70,7 +66,6 @@ export default function MyObserversPage() {
       if (!userId) {
         if (!cancelled) {
           setObservers([])
-          setAccepted([])
           setCourseLabel('—')
           setError('Your session is unavailable. Please sign in again.')
           setIsLoading(false)
@@ -89,21 +84,16 @@ export default function MyObserversPage() {
         if (!me || !signupSemester) {
           if (!cancelled) {
             setObservers([])
-            setAccepted([])
             setCourseLabel('—')
             setError('No sign-up was found for your account.')
           }
           return
         }
 
-        const [available, acceptedObservers] = await Promise.all([
-          getObserverList(String(me.id), signupSemester),
-          getAcceptedObservers(String(me.id), signupSemester),
-        ])
+        const available = await getObserverList(String(me.id), signupSemester)
 
         if (!cancelled) {
           setObservers(available)
-          setAccepted(acceptedObservers)
           setCourseLabel(formatObserveeCourse(me))
           setSignupSemester(signupSemester)
           setSelected([])
@@ -111,7 +101,6 @@ export default function MyObserversPage() {
       } catch (caught) {
         if (!cancelled) {
           setObservers([])
-          setAccepted([])
           setCourseLabel('—')
           setError(
             caught instanceof ApiError
@@ -132,6 +121,8 @@ export default function MyObserversPage() {
   }, [userId])
 
   function toggleObserver(id: string) {
+    if (observers.some((observer) => observer.status === 'confirmed')) return
+
     setSelected((current) =>
       current.includes(id)
         ? current.filter((observerId) => observerId !== id)
@@ -140,6 +131,10 @@ export default function MyObserversPage() {
   }
 
   async function sendRequests() {
+    if (observers.some((observer) => observer.status === 'confirmed')) {
+      setNotice('An observation is already scheduled, so another observer cannot be selected.')
+      return
+    }
     if (!userId || !signupSemester) {
       setNotice('No sign-up was found for your account.')
       return
@@ -152,12 +147,8 @@ export default function MyObserversPage() {
     try {
       setIsSending(true)
       const result = await sendObserverRequests(userId, signupSemester, selected)
-      const [available, acceptedObservers] = await Promise.all([
-        getObserverList(userId, signupSemester),
-        getAcceptedObservers(userId, signupSemester),
-      ])
+      const available = await getObserverList(userId, signupSemester)
       setObservers(available)
-      setAccepted(acceptedObservers)
       setSelected([])
 
       const sentNames = result.sent
@@ -180,27 +171,54 @@ export default function MyObserversPage() {
     }
   }
 
-  function requestStatusLabel(
-    status: string | null | undefined,
-    acceptedObserver: AcceptedObserverResponse | undefined,
-  ) {
-    if (acceptedObserver) return formatSelectedDate(acceptedObserver.selected_date)
-    if (status === 'pending') return 'Pending'
-    if (status === 'declined') return 'Declined'
-    if (status === 'expired') return 'Expired'
-    if (status === 'confirmed') return 'Confirmed'
-    if (status === 'not_selected') return 'Not selected'
+  async function acceptScheduledObserver(observerId: string, name: string) {
+    if (!token || !signupSemester) {
+      setNotice('Your session is unavailable. Please sign in again.')
+      return
+    }
+    if (observers.some((observer) => observer.status === 'confirmed')) {
+      setNotice('An observation is already scheduled, so another observer cannot be selected.')
+      return
+    }
+
+    try {
+      setAcceptingId(observerId)
+      const result = await confirmObserver(signupSemester, observerId, token)
+      const available = userId
+        ? await getObserverList(userId, signupSemester)
+        : observers
+      setObservers(available)
+      setSelected([])
+      setNotice(
+        `${name} is scheduled for ${formatSelectedDate(result.selected_date)}. Another observer cannot be selected.`,
+      )
+    } catch (caught) {
+      setNotice(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Unable to accept this observer.',
+      )
+    } finally {
+      setAcceptingId(null)
+    }
+  }
+
+  function requestStatusLabel(observer: ObserverCandidateResponse) {
+    if (observer.status === 'accepted') return formatSelectedDate(observer.selected_date)
+    if (observer.status === 'pending') return 'Pending'
+    if (observer.status === 'declined') return 'Declined'
+    if (observer.status === 'expired') return 'Expired'
+    if (observer.status === 'confirmed') return `Confirmed ${formatSelectedDate(observer.selected_date)}`
+    if (observer.status === 'not_selected') return 'Not selected'
     return '—'
   }
 
-  const acceptedById = new Map(
-    accepted.map((observer) => [String(observer.observer_id), observer]),
-  )
-  const confirmedName = accepted
-    .map((observer) => observer.professor_name ?? '—')
-    .join(', ')
-  const confirmedDate = accepted
-    .map((observer) => formatSelectedDate(observer.selected_date))
+  const scheduled = observers.filter((observer) => observer.status === 'confirmed')
+  const awaitingAccept = observers.filter((observer) => observer.status === 'accepted')
+  const isScheduled = scheduled.length > 0
+  const scheduledName = scheduled.map((observer) => observer.professor_name ?? '—').join(', ')
+  const scheduledDate = scheduled
+    .map((observer) => formatSelectedDate(observer.selected_date ?? null))
     .join(', ')
 
   return (
@@ -209,22 +227,27 @@ export default function MyObserversPage() {
         <div>
           <p className="participant-course">{courseLabel}</p>
           <h1>Your observer list is ready</h1>
-          <p>Send a request to one or more observers. Requests expire after 48 hours.</p>
+          <p>Send a request to one or more observers. After an observer accepts a date, accept them here to schedule the observation. Requests expire after 48 hours.</p>
         </div>
       </header>
 
-      {accepted.length > 0 && (
-        <section aria-label="Confirmed observer" className="confirmed-observer-banner">
+      {isScheduled && (
+        <section aria-label="Scheduled observer" className="confirmed-observer-banner">
+          <div>
+            <strong>{scheduledName} is your selected observer</strong>
+            <p>Your observation is set for {scheduledDate}. Another observer cannot be selected.</p>
+          </div>
+        </section>
+      )}
+
+      {!isScheduled && awaitingAccept.length > 0 && (
+        <section aria-label="Observers waiting for your acceptance" className="confirmed-observer-banner">
           <div>
             <strong>
-              {confirmedName}{' '}
-              {accepted.length === 1 ? 'is your selected observer' : 'are your selected observers'}
+              {awaitingAccept.map((observer) => observer.professor_name ?? '—').join(', ')}{' '}
+              {awaitingAccept.length === 1 ? 'accepted a date' : 'accepted dates'}
             </strong>
-            <p>
-              {accepted.length === 1
-                ? `Your observation is set for ${confirmedDate}.`
-                : `Your observations are set for ${confirmedDate}.`}
-            </p>
+            <p>Accept one of them to schedule the observation. Only one observer can be scheduled.</p>
           </div>
         </section>
       )}
@@ -254,7 +277,7 @@ export default function MyObserversPage() {
               {observers.map((observer) => {
                 const observerId = String(observer.observer_id)
                 const name = observer.professor_name ?? '—'
-                const acceptedObserver = acceptedById.get(observerId)
+                const canAccept = observer.status === 'accepted' && !isScheduled
 
                 return (
                   <tr key={observerId}>
@@ -262,6 +285,7 @@ export default function MyObserversPage() {
                       <input
                         aria-label={`Select ${name}`}
                         checked={selected.includes(observerId)}
+                        disabled={isScheduled}
                         onChange={() => toggleObserver(observerId)}
                         type="checkbox"
                       />
@@ -272,7 +296,17 @@ export default function MyObserversPage() {
                       —
                     </td>
                     <td>
-                      {requestStatusLabel(observer.status, acceptedObserver)}
+                      {requestStatusLabel(observer)}
+                      {canAccept && (
+                        <button
+                          className="button button--primary observer-accept"
+                          disabled={acceptingId !== null}
+                          onClick={() => acceptScheduledObserver(observerId, name)}
+                          type="button"
+                        >
+                          {acceptingId === observerId ? 'Accepting...' : 'Accept'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -287,7 +321,7 @@ export default function MyObserversPage() {
           {/* TODO: needs backend field */}
           Requests include your dates: —
         </p>
-        <button className="button button--outline" disabled={isSending} onClick={sendRequests} type="button">
+        <button className="button button--outline" disabled={isSending || isScheduled} onClick={sendRequests} type="button">
           {isSending ? 'Sending request...' : 'Send request to selected'}
         </button>
       </footer>

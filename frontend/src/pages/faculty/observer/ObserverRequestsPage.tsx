@@ -158,6 +158,8 @@ export default function ObserverRequestsPage() {
     }
   }
 
+  const confirmedCount = requests.filter((request) => isAccepted(request.status)).length
+  const atCapacity = confirmedCount >= 3
   const visibleRequests = requests.filter((request) => request.status !== 'declined')
 
   return (
@@ -165,7 +167,11 @@ export default function ObserverRequestsPage() {
       <header className="participant-header">
         <div>
           <h1>Observation requests</h1>
-          <p>Respond within 48 hours. You can confirm up to 3.</p>
+          <p>
+            {atCapacity
+              ? 'You already have 3 confirmed observations, so you cannot accept another request.'
+              : 'Respond within 48 hours. You can confirm up to 3.'}
+          </p>
         </div>
       </header>
 
@@ -217,7 +223,14 @@ export default function ObserverRequestsPage() {
                     </fieldset>
                     <div className="request-card__actions">
                       <button className="button button--outline" onClick={() => respond(request.meeting_id, 'declined')} type="button">Decline</button>
-                      <button className="button button--primary" onClick={() => respond(request.meeting_id, 'accepted')} type="button">Confirm</button>
+                      <button
+                        className="button button--primary"
+                        disabled={atCapacity}
+                        onClick={() => respond(request.meeting_id, 'accepted')}
+                        type="button"
+                      >
+                        Confirm
+                      </button>
                     </div>
                   </>
                 ) : (

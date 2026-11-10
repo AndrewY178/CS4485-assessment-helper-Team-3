@@ -2,6 +2,7 @@ import { get, post } from './client'
 import type {
   AcceptedObserverResponse,
   GenerateObserverListsResponse,
+  ConfirmObserverResponse,
   ObserverCandidateResponse,
   ObserverRequestResponse,
   SendObserverRequestsResponse,
@@ -69,6 +70,20 @@ export function sendObserverRequests(
       signup_semester: signupSemester,
       observer_ids: observerIds.map(Number),
     },
+  })
+}
+
+export function confirmObserver(
+  signupSemester: string,
+  observerId: string,
+  token: string,
+) {
+  return post<ConfirmObserverResponse>('/api/observers/confirm', {
+    body: {
+      signup_semester: signupSemester,
+      observer_id: Number(observerId),
+    },
+    token,
   })
 }
 
