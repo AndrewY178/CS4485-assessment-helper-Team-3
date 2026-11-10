@@ -144,3 +144,112 @@ CREATE TABLE reports (
 
     FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
 );
+
+
+CREATE TABLE evaluation_forms (
+    form_id INT AUTO_INCREMENT PRIMARY KEY,
+    form_name VARCHAR(150) NOT NULL
+);
+
+CREATE TABLE evaluation_form_versions (
+    version_id INT AUTO_INCREMENT PRIMARY KEY,
+    form_id INT NOT NULL,
+    version_number INT NOT NULL,
+    version_status ENUM('draft', 'published', 'retired')
+        NOT NULL DEFAULT 'draft',
+    effective_semester VARCHAR(20),
+    created_by INT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    published_at TIMESTAMP NULL DEFAULT NULL,
+
+    UNIQUE (form_id, version_number),
+
+    FOREIGN KEY (form_id)
+        REFERENCES evaluation_forms(form_id),
+    FOREIGN KEY (created_by)
+        REFERENCES assessment_committee(ac_id)
+);
+
+
+CREATE TABLE form_questions (
+    question_id INT AUTO_INCREMENT PRIMARY KEY,
+    version_id INT NOT NULL,
+    question_key VARCHAR(100) NOT NULL,
+    question_name VARCHAR(255) NOT NULL,
+    question_description TEXT,
+    question_type ENUM(
+        'rating',
+        'yes_no',
+        'short_answer',
+        'long_answer'
+    ) NOT NULL,
+    question_weight DECIMAL(6,2),
+    is_required BOOLEAN NOT NULL DEFAULT TRUE,
+    display_order INT NOT NULL,
+
+    UNIQUE (version_id, question_key),
+    UNIQUE (version_id, question_id),
+
+    CHECK (question_weight IS NULL OR question_weight >= 0),
+    CHECK (display_order >= 0),
+
+    FOREIGN KEY (version_id)
+        REFERENCES evaluation_form_versions(version_id)
+);
+
+CREATE TABLE form_question_options (
+    option_id INT AUTO_INCREMENT PRIMARY KEY,
+    question_id INT NOT NULL,
+    option_value INT NOT NULL,
+    option_label VARCHAR(150) NOT NULL,
+    display_order INT NOT NULL,
+
+    UNIQUE (question_id, option_value),
+
+    CHECK (display_order >= 0),
+
+    FOREIGN KEY (question_id)
+        REFERENCES form_questions(question_id)
+);
+
+
+CREATE TABLE evaluations (
+    evaluation_id INT AUTO_INCREMENT PRIMARY KEY,
+    meeting_id INT NOT NULL UNIQUE,
+    version_id INT NOT NULL,
+    evaluation_status ENUM('draft', 'submitted')
+        NOT NULL DEFAULT 'draft',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    submitted_at TIMESTAMP NULL DEFAULT NULL,
+
+    UNIQUE (evaluation_id, version_id),
+
+    FOREIGN KEY (meeting_id)
+        REFERENCES meetings(meeting_id),
+    FOREIGN KEY (version_id)
+        REFERENCES evaluation_form_versions(version_id)
+);
+
+
+CREATE TABLE evaluation_answers (
+    evaluation_id INT NOT NULL,
+    version_id INT NOT NULL,
+    question_id INT NOT NULL,
+    answer_number DECIMAL(10,2),
+    answer_text TEXT,
+
+    PRIMARY KEY (evaluation_id, question_id),
+
+    FOREIGN KEY (evaluation_id, version_id)
+        REFERENCES evaluations(evaluation_id, version_id),
+    FOREIGN KEY (version_id, question_id)
+        REFERENCES form_questions(version_id, question_id),
+
+    CHECK (
+        (answer_number IS NOT NULL AND answer_text IS NULL)
+        OR
+        (answer_number IS NULL AND answer_text IS NOT NULL)
+    )
+);
