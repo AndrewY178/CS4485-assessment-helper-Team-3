@@ -1,8 +1,8 @@
 import type { FacultyScheduleResponse } from '../types/schedule'
 import { get } from './client'
 
-// TODO(API): Replace this temporary semester with the active cycle returned by
-// Flask once the active-cycle endpoint is available.
+// Used by schedule and observer-request screens until they receive an active
+// semester from their own API responses.
 export const TEMPORARY_SCHEDULE_SEMESTER = 'Fall 2026'
 
 export interface FacultyCourse {
