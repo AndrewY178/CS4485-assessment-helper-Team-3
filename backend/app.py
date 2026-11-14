@@ -145,8 +145,6 @@ CYCLE_UPSERT = """
     ) 
     VALUES (%s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
-        semester = VALUES(semester),
-        cycle_status = VALUES(cycle_status),
         signup_deadline = VALUES(signup_deadline),
         observation_deadline = VALUES(observation_deadline),
         feedback_deadline = VALUES(feedback_deadline)
@@ -820,7 +818,7 @@ def accept_observer_request(meeting_id):
         query(
             """
             UPDATE observation_requests
-            SET status ='expired'
+            SET status = 'expired'
             WHERE meeting_id = %s AND observer_id = %s AND status = 'pending'
             """,
             (meeting_id, g.user_id),
@@ -1057,7 +1055,7 @@ def get_faculty_schedule():
 def health():
     return jsonify(status="ok")
 
-@app.route("/api/schedule") # grabs all the evaluation cycles, ordered by semester_id
+@app.route("/api/schedule") # returns all evaluation cycles
 @ac_required
 def get_schedules():
     rows = query(CYCLE_SELECT)
