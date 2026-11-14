@@ -576,7 +576,7 @@ def send_observer_requests():
                 SET status = 'pending', sent_at = NOW()
                 WHERE meeting_id = %s
                   AND observer_id = %s
-                  AND status IN ('generated', 'approved')
+                  AND status = 'approved'
                 """,
                 (meeting_id, observer_id),
             )
@@ -846,14 +846,23 @@ def accept_observer_request(meeting_id):
         if meeting["observer_id"] is not None:
             raise ObservationRuleError("This observation is already scheduled", 409)
 
+        # only this semester's observations count toward the cap of 3
         cur.execute(
             """
-            SELECT status
-            FROM observation_requests
-            WHERE observer_id = %s
-            FOR UPDATE
+            SELECT r.status
+            FROM observation_requests r
+            JOIN meetings m ON m.meeting_id = r.meeting_id
+            JOIN courses c ON c.course_id = m.course_id
+            WHERE r.observer_id = %s
+              AND c.semester = (
+                  SELECT c2.semester
+                  FROM meetings m2
+                  JOIN courses c2 ON c2.course_id = m2.course_id
+                  WHERE m2.meeting_id = %s
+              )
+            FOR UPDATE OF r
             """,
-            (g.user_id,),
+            (g.user_id, meeting_id),
         )
         confirmed = sum(
             1
