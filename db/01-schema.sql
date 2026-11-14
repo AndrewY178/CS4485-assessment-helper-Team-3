@@ -144,3 +144,15 @@ CREATE TABLE reports (
 
     FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
 );
+
+CREATE TABLE evaluation_cycles (
+    semester VARCHAR(20) PRIMARY KEY,
+    -- is in draft mode until it reaches the signup deadline (once signup deadline passes, can't be changed?)
+    cycle_status ENUM('draft', 'signup', 'observation', 'feedback', 'closed')
+        NOT NULL DEFAULT 'draft',
+    signup_deadline DATETIME NOT NULL,
+    observation_deadline DATETIME NOT NULL,
+    feedback_deadline DATETIME NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP
+);
