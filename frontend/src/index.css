@@ -1922,6 +1922,24 @@ tbody th {
   vertical-align: middle;
 }
 
+.observer-list-table input[type='checkbox']:disabled {
+  opacity: 0.45;
+}
+
+.observer-accept {
+  min-height: 32px;
+  margin-left: 10px;
+  padding: 0 12px;
+  border-radius: 3px;
+  font-family: 'Newsreader', serif;
+  font-weight: 400;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .observer-status--confirmed {
   color: var(--green-700);
 }

@@ -196,6 +196,13 @@ export interface ObserverCandidateResponse {
   professor_department: string
   currentObservationCount: number
   status?: string | null
+  selected_date?: string | null
+}
+
+export interface ConfirmObserverResponse {
+  observer_id: number
+  status: 'confirmed'
+  selected_date: string | null
 }
 
 export interface SendObserverRequestsResponse {
