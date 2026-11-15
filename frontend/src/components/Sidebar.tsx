@@ -21,7 +21,6 @@ const observerItems = [
 const observeeItems = [
   { label: 'My Observer', to: '/my-observers' },
   { label: 'My Observation', to: '/my-observation' },
-  { label: 'Survey', to: '/survey' },
 ]
 
 interface FacultyGroupProps {
@@ -126,6 +125,13 @@ export default function Sidebar() {
               to="/my-schedule"
             >
               My Schedule
+            </AppLink>
+            <AppLink
+              activeClassName="sidebar__link--active"
+              className="sidebar__link"
+              to="/survey"
+            >
+              Survey
             </AppLink>
             <FacultyGroup
               id="observer-navigation"

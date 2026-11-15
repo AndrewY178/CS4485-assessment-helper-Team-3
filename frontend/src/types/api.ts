@@ -334,13 +334,6 @@ export interface InvitationResponse {
 // Updates the observer for a teacher after the observer accepts.
 // Uses SetObserversRequest above.
 
-// POST /api/feedback
-// Used by: Survey
-// PROPOSED request: { answers: Record<string, number | string> }
-export interface FeedbackRequest {
-  answers: Record<string, number | string>
-}
-
 // POST /api/obs/{id}/form
 // Observer: can edit the form and sign. Observee: can only sign.
 // PROPOSED request: { answers: Record<string, number | string>, signed: boolean }
