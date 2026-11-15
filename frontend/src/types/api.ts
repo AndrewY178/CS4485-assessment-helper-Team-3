@@ -58,7 +58,7 @@ export type CycleStatus =
   | 'feedback'
   | 'closed'
 
-// GET /api/schedule/{semId}
+// GET /api/schedule (all cycles) and PUT /api/schedule/{semId}
 // Timestamps are UTC ISO 8601 strings. Display them in the response timezone.
 export interface EvaluationCycleResponse {
   id: string
