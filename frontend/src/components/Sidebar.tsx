@@ -75,7 +75,7 @@ function FacultyGroup({
 }
 
 export default function Sidebar() {
-  const { roles, switchRoleForTesting } = useAuth()
+  const { roles, canSwitchRoleForTesting, switchRoleForTesting } = useAuth()
   const logout = useLogout()
   const { navigate } = useNavigation()
   const isACMember = roles.includes('AC Member')
@@ -111,6 +111,16 @@ export default function Sidebar() {
             </AppLink>
           ))}
 
+        {isACMember && (
+          <AppLink
+            activeClassName="sidebar__link--active"
+            className="sidebar__link"
+            to="/messages"
+          >
+            Messages
+          </AppLink>
+        )}
+
         {isFaculty && (
           <>
             <AppLink
@@ -119,6 +129,13 @@ export default function Sidebar() {
               to="/faculty/status"
             >
               My Status
+            </AppLink>
+            <AppLink
+              activeClassName="sidebar__link--active"
+              className="sidebar__link"
+              to="/messages"
+            >
+              Messages
             </AppLink>
             <AppLink
               activeClassName="sidebar__link--active"
@@ -149,7 +166,7 @@ export default function Sidebar() {
         <span className="sidebar__role">
           {isACMember ? 'AC Member' : 'Faculty'}
         </span>
-        {import.meta.env.DEV && (
+        {canSwitchRoleForTesting && (
           <button
             className="sidebar__role-switch"
             onClick={handleRoleSwitch}

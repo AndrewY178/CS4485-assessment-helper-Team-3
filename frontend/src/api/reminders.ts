@@ -3,6 +3,7 @@ import { post } from './client'
 export interface ReminderResult {
   sentCount: number
   recipientCount: number
+  notificationCount: number
   testMode: boolean
 }
 
