@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/auth'
+import { getFeedbackBreakdown } from '../../api/feedback'
 import { getKpis } from '../../api/kpis'
 import { useAuth } from '../../context/AuthContext'
-import type { CycleKpis } from '../../types/api'
+import type { CycleKpis, FeedbackBreakdownResponse } from '../../types/api'
 
 function percent(rate: number | null): string {
   if (rate == null) return '—'
@@ -25,9 +26,11 @@ export default function CycleKpiPage() {
   const { token } = useAuth()
   const [cycles, setCycles] = useState<CycleKpis[]>([])
   const [selectedCycle, setSelectedCycle] = useState('')
-  const [notice, setNotice] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [breakdown, setBreakdown] = useState<FeedbackBreakdownResponse | null>(null)
+  const [surveyLoading, setSurveyLoading] = useState(false)
+  const [surveyError, setSurveyError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -56,9 +59,38 @@ export default function CycleKpiPage() {
     return () => controller.abort()
   }, [token])
 
+  useEffect(() => {
+    if (!token || !selectedCycle) return
+    const controller = new AbortController()
+    setSurveyLoading(true)
+    setSurveyError(null)
+    getFeedbackBreakdown(selectedCycle, token, controller.signal)
+      .then((stored) => {
+        if (!controller.signal.aborted) setBreakdown(stored)
+      })
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) return
+        setBreakdown(null)
+        setSurveyError(caught instanceof Error ? caught.message : 'Survey responses could not be loaded.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSurveyLoading(false)
+      })
+    return () => controller.abort()
+  }, [selectedCycle, token])
+
   const selectedIndex = cycles.findIndex((cycle) => cycle.cycle === selectedCycle)
   const current = selectedIndex >= 0 ? cycles[selectedIndex] : cycles[0]
   const previous = current ? cycles[selectedIndex + 1] : undefined
+  const counts = breakdown && breakdown.semester === current?.cycle ? breakdown.counts : null
+  const responseCount = counts ? counts.yes + counts.mostly + counts.no : 0
+  const surveySummary = !current || surveyLoading
+    ? 'Loading survey responses…'
+    : surveyError
+      ? surveyError
+      : responseCount === 0
+        ? 'No survey responses are stored for this semester.'
+        : `${counts?.yes ?? 0} said the process was OK. ${counts?.mostly ?? 0} said mostly. ${counts?.no ?? 0} said no.`
 
   function row(metric: string, currentValue: string, previousValue: string, method: string) {
     return { metric, currentValue, previousValue, method }
@@ -235,44 +267,11 @@ export default function CycleKpiPage() {
 
               <section aria-labelledby="survey-feedback-title" className="kpi-side-card survey-feedback">
                 <h2 id="survey-feedback-title">Survey feedback</h2>
-                <p>
-                  {current.survey.completed} of {current.survey.reachedSurvey} professors who signed up, sent a request, and were observed submitted the final survey.
-                  {!current.survey.surveysStored && ' Survey answers are not stored yet, so completed surveys stay at 0.'}
-                </p>
-                <button
-                  className="text-link kpi-feedback-link"
-                  onClick={() =>
-                    setNotice(
-                      current.survey.surveysStored
-                        ? `${current.survey.completed} survey responses are stored for ${current.cycle}.`
-                        : 'No survey responses are stored yet. The completion rate counts professors who signed up, sent a request, were observed, and submitted a survey.',
-                    )
-                  }
-                  type="button"
-                >
-                  Read all responses
-                </button>
+                <p role={surveyError ? 'alert' : undefined}>{surveySummary}</p>
               </section>
             </aside>
           </div>
         </>
-      )}
-
-      {notice && (
-        <div className="kpi-feedback-dialog" role="dialog" aria-modal="true" aria-label="Survey responses">
-          <div className="kpi-feedback-dialog__card">
-            <button
-              aria-label="Close survey responses"
-              className="kpi-feedback-dialog__close"
-              onClick={() => setNotice('')}
-              type="button"
-            >
-              ×
-            </button>
-            <h2>Survey responses</h2>
-            <p>{notice}</p>
-          </div>
-        </div>
       )}
     </section>
   )

@@ -17,6 +17,7 @@ export default function SignUpsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rankError, setRankError] = useState('')
+  const [lastChange, setLastChange] = useState('')
   const [savingRankId, setSavingRankId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<'All statuses' | SignUpStatus>('All statuses')
@@ -80,6 +81,7 @@ export default function SignUpsPage() {
           item.id === request.id ? { ...item, level: updated.prof_rank } : item,
         ),
       )
+      setLastChange(`${request.name} is now ${updated.prof_rank}.`)
     } catch (saveError) {
       setRankError(
         saveError instanceof ApiError
@@ -159,6 +161,7 @@ export default function SignUpsPage() {
           </select>
         </div>
       </header>
+      {lastChange && <p role="status">{lastChange}</p>}
       {rankError && <p className="form-error" role="alert">{rankError}</p>}
 
       <div className="screen-table-card">

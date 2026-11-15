@@ -16,6 +16,7 @@ from kpis import kpis_bp
 from dashboard import dashboard_bp
 from professor_rank import professor_rank_bp
 from past_observations import past_observations_bp
+from feedback import feedback_bp
 
 from db import query, pool, transaction
 
@@ -32,6 +33,7 @@ app.register_blueprint(kpis_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(professor_rank_bp)
 app.register_blueprint(past_observations_bp)
+app.register_blueprint(feedback_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""

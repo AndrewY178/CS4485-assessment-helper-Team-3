@@ -172,11 +172,12 @@ export interface DashboardResponse {
 
 // GET /api/users
 // Used by: hireLevelRows (HireLevelTable), grouped by hireLevel on the frontend
+
 export interface UserResponse {
   id: string
   name: string
   username: string
-  prof_rank: string // this is hireLevel
+  prof_rank: string | null // this is hireLevel
   department: string
   last_sem_observed: string | null
   hiring_sem: string | null
@@ -478,11 +479,36 @@ export interface InvitationResponse {
 // Updates the observer for a teacher after the observer accepts.
 // Uses SetObserversRequest above.
 
-// POST /api/feedback
-// Used by: Survey
-// PROPOSED request: { answers: Record<string, number | string> }
-export interface FeedbackRequest {
-  answers: Record<string, number | string>
+// PUT /api/feedback
+// GET /api/feedback?semester=&observee_id=
+// GET /api/feedback/breakdown?semester=
+export type FeedbackSemesterRole = 'observee' | 'observer' | 'both'
+export type FeedbackProcessRating = 'yes' | 'mostly' | 'no'
+
+export interface SaveFeedbackRequest {
+  semester: string
+  semester_role?: FeedbackSemesterRole
+  process_OK: FeedbackProcessRating
+  difficulties?: string | null
+  improvements?: string | null
+}
+
+export interface FeedbackResponse {
+  semester: string
+  observee_id: number
+  semester_role: FeedbackSemesterRole
+  process_OK: FeedbackProcessRating
+  difficulties: string | null
+  improvements: string | null
+}
+
+export interface FeedbackBreakdownResponse {
+  semester: string
+  counts: {
+    yes: number
+    mostly: number
+    no: number
+  }
 }
 
 // POST /api/obs/{id}/form
