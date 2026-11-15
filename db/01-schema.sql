@@ -150,14 +150,8 @@ CREATE TABLE observation_requests (
 -- );
 
 
-CREATE TABLE evaluation_forms (
-    form_id INT AUTO_INCREMENT PRIMARY KEY,
-    form_name VARCHAR(150) NOT NULL
-);
-
 CREATE TABLE evaluation_form_versions (
     version_id INT AUTO_INCREMENT PRIMARY KEY,
-    form_id INT NOT NULL,
     version_number INT NOT NULL,
     version_status ENUM('draft', 'published', 'retired')
         NOT NULL DEFAULT 'draft',
@@ -166,10 +160,7 @@ CREATE TABLE evaluation_form_versions (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     published_at TIMESTAMP NULL DEFAULT NULL,
 
-    UNIQUE (form_id, version_number),
-
-    FOREIGN KEY (form_id)
-        REFERENCES evaluation_forms(form_id),
+    UNIQUE (version_number),
     FOREIGN KEY (created_by)
         REFERENCES assessment_committee(ac_id)
 );
