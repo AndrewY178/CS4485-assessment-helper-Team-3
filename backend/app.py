@@ -12,6 +12,7 @@ from emailservice import EmailServiceError, send_email
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
 from observer_approval import observer_approval_bp
+from feedback import feedback_bp
 
 from db import query, pool, transaction
 from datetime import datetime, timezone
@@ -25,6 +26,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(reminders_bp)
 app.register_blueprint(signup_dates_bp)
 app.register_blueprint(observer_approval_bp)
+app.register_blueprint(feedback_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""

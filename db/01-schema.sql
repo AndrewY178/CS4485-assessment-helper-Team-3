@@ -264,3 +264,14 @@ CREATE TABLE evaluation_cycles (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP
 );
+CREATE TABLE feedback (
+    semester VARCHAR(20),
+    professor_id INT,
+    semester_role ENUM('observee', 'observer', 'both') NOT NULL DEFAULT 'observee',
+    -- asking if the process went OK
+    process_OK ENUM('yes', 'mostly', 'no') NOT NULL,
+    difficulties TEXT,
+    improvements TEXT,
+    PRIMARY KEY (semester, professor_id),
+    FOREIGN KEY (professor_id) REFERENCES professors(professor_id)
+);
