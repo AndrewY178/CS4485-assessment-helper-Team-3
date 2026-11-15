@@ -7,6 +7,7 @@ from flask import Blueprint, g, jsonify, request
 
 from api_helpers import error, transaction
 from auth import ac_required
+from current_semester import next_semester, semester_for_date
 
 templates_bp = Blueprint("templates", __name__)
 
@@ -26,13 +27,13 @@ def _semester_key(semester):
     return (int(match.group(2)), TERM_ORDER[match.group(1)]) if match else (-1, -1)
 
 
-# determines the semester currently happening and the next semester
-def _effective_semesters(cycles, now):
-    ordered = sorted(cycles, key=lambda cycle: _semester_key(cycle["semester"]))
-    open_cycles = [cycle for cycle in ordered if cycle["signup_deadline"] >= now]
-    current = open_cycles[-1] if open_cycles else (ordered[-1] if ordered else None)
-    current_index = ordered.index(current) if current else -1
-    next_cycle = ordered[current_index + 1] if current_index >= 0 and current_index + 1 < len(ordered) else None
+# Use the application's semester calendar and only treat a configured following
+# cycle as the next editable semester.
+def _effective_semesters(cycles):
+    current_name = semester_for_date()
+    next_name = next_semester(current_name)
+    current = next((cycle for cycle in cycles if cycle["semester"] == current_name), None)
+    next_cycle = next((cycle for cycle in cycles if cycle["semester"] == next_name), None)
     return current, next_cycle
 
 # get the latest version of the template
@@ -106,7 +107,7 @@ def _page_data(cursor, selected_semester=None):
     cycles = cursor.fetchall()
     from datetime import datetime
     now = datetime.utcnow()
-    current, next_cycle = _effective_semesters(cycles, now)
+    current, next_cycle = _effective_semesters(cycles)
     versions_by_semester = {}
     cursor.execute(
         """
@@ -131,10 +132,8 @@ def _page_data(cursor, selected_semester=None):
     result = []
     for semester in ordered_semesters:
         cycle = next((item for item in cycles if item["semester"] == semester), None)
-        is_editable = semester in editable and (
-            semester != (current["semester"] if current else None)
-            or (cycle and cycle["signup_deadline"] > now)
-        )
+        is_current = current and semester == current["semester"]
+        is_editable = semester in editable and cycle and (not is_current or cycle["signup_deadline"] > now)
         latest = versions_by_semester.get(semester)
         result.append({
             "semester": semester,
@@ -146,10 +145,8 @@ def _page_data(cursor, selected_semester=None):
         if selected_semester not in semester_names:
             return result, None, None
         cycle = next((item for item in cycles if item["semester"] == selected_semester), None)
-        can_edit = selected_semester in editable and (
-            selected_semester != (current["semester"] if current else None)
-            or (cycle and cycle["signup_deadline"] > now)
-        )
+        is_current = current and selected_semester == current["semester"]
+        can_edit = selected_semester in editable and cycle and (not is_current or cycle["signup_deadline"] > now)
         version = versions_by_semester.get(selected_semester)
         data = _version_response(cursor, selected_semester, version, is_editable=bool(can_edit))
         data["signupDeadline"] = cycle["signup_deadline"].isoformat() if cycle else None
@@ -267,4 +264,5 @@ def save_template(semester):
             response = _version_response(cursor, semester, version, is_editable=True)
         finally:
             cursor.execute("SELECT RELEASE_LOCK('evaluation_template_version_number')")
+            cursor.fetchone()
     return jsonify(template=response), 201
