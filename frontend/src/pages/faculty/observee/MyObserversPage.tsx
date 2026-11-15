@@ -291,10 +291,7 @@ export default function MyObserversPage() {
                       />
                     </td>
                     <td>{name}</td>
-                    <td>
-                      {/* TODO: needs backend field */}
-                      —
-                    </td>
+                    <td>{observer.teaches || '—'}</td>
                     <td>
                       {requestStatusLabel(observer)}
                       {canAccept && (

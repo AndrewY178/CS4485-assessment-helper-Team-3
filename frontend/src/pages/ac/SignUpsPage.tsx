@@ -1,18 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { ApiError } from '../../api/auth'
+import { updateProfessorRank } from '../../api/professorRank'
 import {
   getSignUpRequests,
   type SignUpRequest,
   type SignUpStatus,
 } from '../../api/signups'
+import { useAuth } from '../../context/AuthContext'
 
 const pageSize = 8
 
 export default function SignUpsPage() {
+  const { token } = useAuth()
   const [signUpRequests, setSignUpRequests] = useState<SignUpRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [rankError, setRankError] = useState('')
+  const [savingRankId, setSavingRankId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<'All statuses' | SignUpStatus>('All statuses')
+  const [page, setPage] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -22,7 +30,10 @@ export default function SignUpsPage() {
         setIsLoading(true)
         setError(null)
 
-        const requests = await getSignUpRequests()
+        if (!token) {
+          throw new Error('Your session is unavailable. Please sign in again.')
+        }
+        const requests = await getSignUpRequests(token)
 
         if (!cancelled) {
           setSignUpRequests(requests)
@@ -47,10 +58,38 @@ export default function SignUpsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<'All statuses' | SignUpStatus>('All statuses')
-  const [page, setPage] = useState(0)
+  }, [token])
+
+  const rankOptions = useMemo(() => {
+    return [...new Set(signUpRequests.map((request) => request.level).filter(Boolean))].sort()
+  }, [signUpRequests])
+
+  async function changeRank(request: SignUpRequest, profRank: string) {
+    if (!profRank || profRank === request.level) return
+    if (!token) {
+      setRankError('Your session is unavailable. Please sign in again.')
+      return
+    }
+
+    setRankError('')
+    setSavingRankId(request.id)
+    try {
+      const updated = await updateProfessorRank(request.id, profRank, token)
+      setSignUpRequests((current) =>
+        current.map((item) =>
+          item.id === request.id ? { ...item, level: updated.prof_rank } : item,
+        ),
+      )
+    } catch (saveError) {
+      setRankError(
+        saveError instanceof ApiError
+          ? saveError.message
+          : 'Unable to update this professor rank.',
+      )
+    } finally {
+      setSavingRankId(null)
+    }
+  }
 
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -120,6 +159,7 @@ export default function SignUpsPage() {
           </select>
         </div>
       </header>
+      {rankError && <p className="form-error" role="alert">{rankError}</p>}
 
       <div className="screen-table-card">
         <div className="screen-table-scroll">
@@ -154,10 +194,28 @@ export default function SignUpsPage() {
                 {!isLoading &&
                   !error &&
                   visibleRequests.map((request) => (
-                    <tr key={request.email}>
+                    <tr key={request.id}>
                       <td>{request.name}</td>
                       <td>{request.email}</td>
-                      <td>{request.level}</td>
+                      <td>
+                        <label className="visually-hidden" htmlFor={`rank-${request.id}`}>
+                          Rank for {request.name}
+                        </label>
+                        <select
+                          className="rank-select"
+                          disabled={savingRankId === request.id || rankOptions.length === 0}
+                          id={`rank-${request.id}`}
+                          onChange={(event) => void changeRank(request, event.target.value)}
+                          value={request.level}
+                        >
+                          {!request.level && <option value="">—</option>}
+                          {rankOptions.map((rank) => (
+                            <option key={rank} value={rank}>
+                              {rank}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td>{request.course}</td>
                       <td>{request.time}</td>
                       <td

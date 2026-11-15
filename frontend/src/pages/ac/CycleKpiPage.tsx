@@ -1,119 +1,262 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { ApiError } from '../../api/auth'
+import { getKpis } from '../../api/kpis'
+import { useAuth } from '../../context/AuthContext'
+import type { CycleKpis } from '../../types/api'
 
-const kpis = [
-  { metric: 'Eligibility accuracy', fall: '100%', spring: '93%', method: 'Eligible faculty with a correct cycle assignment' },
-  { metric: 'Overdue evaluations', fall: '6', spring: '9', method: 'Evaluations still incomplete after the deadline' },
-  { metric: 'Participation rate', fall: '60%', spring: '75%', method: 'Completed observations divided by evaluations due' },
-  { metric: 'Observer utilization', fall: '83%', spring: '58%', method: 'Assigned observations divided by observer capacity' },
-  { metric: 'Missing observations', fall: '1', spring: '3', method: 'Faculty due without a completed observation' },
-]
+function percent(rate: number | null): string {
+  if (rate == null) return '—'
+  return `${Math.round(rate * 100)}%`
+}
+
+function average(value: number | null): string {
+  if (value == null) return '—'
+  return value.toFixed(1)
+}
+
+function rankLabel(rank: string): string {
+  if (rank === 'Assistant') return 'Assistant professor'
+  if (rank === 'Associate') return 'Associate professor'
+  if (rank === 'Full') return 'Professor'
+  return rank
+}
 
 export default function CycleKpiPage() {
+  const { token } = useAuth()
+  const [cycles, setCycles] = useState<CycleKpis[]>([])
+  const [selectedCycle, setSelectedCycle] = useState('')
   const [notice, setNotice] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!token) {
+      setIsLoading(false)
+      setError('Your session is unavailable. Please sign in again.')
+      return
+    }
+
+    const controller = new AbortController()
+    getKpis(token, controller.signal)
+      .then((response) => {
+        if (controller.signal.aborted) return
+        setCycles(response.cycles)
+        setSelectedCycle(response.cycles[0]?.cycle ?? '')
+        setError(null)
+      })
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) return
+        setCycles([])
+        setError(caught instanceof ApiError ? caught.message : 'Unable to load KPIs.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [token])
+
+  const selectedIndex = cycles.findIndex((cycle) => cycle.cycle === selectedCycle)
+  const current = selectedIndex >= 0 ? cycles[selectedIndex] : cycles[0]
+  const previous = current ? cycles[selectedIndex + 1] : undefined
+
+  function row(metric: string, currentValue: string, previousValue: string, method: string) {
+    return { metric, currentValue, previousValue, method }
+  }
+
+  const rows = current
+    ? [
+        row(
+          'Eligibility accuracy',
+          percent(current.eligibility.rate),
+          percent(previous?.eligibility.rate ?? null),
+          'Observer matches that are a different professor, the same level, the same department, and free at that time',
+        ),
+        row(
+          'Same professor',
+          String(current.eligibility.sameProfessor),
+          previous ? String(previous.eligibility.sameProfessor) : '—',
+          'Matches where the observer is the professor being observed',
+        ),
+        row(
+          'Same level, other department',
+          String(current.eligibility.otherDepartment),
+          previous ? String(previous.eligibility.otherDepartment) : '—',
+          'Matches at the right level whose course prefix is a different department',
+        ),
+        row(
+          'Different level',
+          String(current.eligibility.differentLevel),
+          previous ? String(previous.eligibility.differentLevel) : '—',
+          'Matches who do not teach the same level, in this department or any other',
+        ),
+        row(
+          'Schedule conflicts',
+          String(current.eligibility.scheduleConflict),
+          previous ? String(previous.eligibility.scheduleConflict) : '—',
+          'Matches who already teach at the same time',
+        ),
+        row(
+          'Overdue evaluations',
+          String(current.overdue),
+          previous ? String(previous.overdue) : '—',
+          'Professors with an earlier sign-up that still has no observation report',
+        ),
+        row(
+          'Participation rate',
+          percent(current.participationRate),
+          percent(previous?.participationRate ?? null),
+          'Professors who signed up divided by professors due this cycle',
+        ),
+        row(
+          'Observer utilization',
+          percent(current.observerUtilization.rate),
+          percent(previous?.observerUtilization.rate ?? null),
+          'Professors who observed divided by professors who signed up this cycle',
+        ),
+        row(
+          'List sufficiency',
+          average(current.listSufficiency.average),
+          average(previous?.listSufficiency.average ?? null),
+          'Average number of observer matches divided by the number of sign-ups',
+        ),
+        row(
+          'Missing observations',
+          String(current.missingObservations),
+          previous ? String(previous.missingObservations) : '—',
+          'Observation reports still outstanding, or observations that did not go through',
+        ),
+        row(
+          'Survey completion',
+          percent(current.survey.rate),
+          percent(previous?.survey.rate ?? null),
+          'Professors who signed up, sent a request, were observed, and submitted the final survey',
+        ),
+      ]
+    : []
 
   return (
     <section className="screen-page kpi-page">
       <header className="screen-header kpi-header">
         <div>
-          <p className="screen-eyebrow">Fall 2026 · Assessment Committee</p>
+          <p className="screen-eyebrow">{current ? `${current.cycle} · Assessment Committee` : 'Assessment Committee'}</p>
           <h1>Cycle KPI report</h1>
           <p>Review cycle progress and compare key measures with the previous semester.</p>
         </div>
         <label className="kpi-cycle-select">
           <span>Reporting cycle</span>
-          <select aria-label="Reporting cycle" defaultValue="Fall 2026">
-            <option>Fall 2026</option>
-            <option>Spring 2027</option>
+          <select
+            aria-label="Reporting cycle"
+            onChange={(event) => setSelectedCycle(event.target.value)}
+            value={current?.cycle ?? ''}
+          >
+            {cycles.map((cycle) => (
+              <option key={cycle.cycle}>{cycle.cycle}</option>
+            ))}
           </select>
         </label>
       </header>
 
-      <section aria-label="Current cycle indicators" className="kpi-highlights">
-        <article className="kpi-highlight">
-          <p>Participation rate</p>
-          <strong>60%</strong>
-          <span>15 of 25 observations complete</span>
-        </article>
-        <article className="kpi-highlight">
-          <p>Observer utilization</p>
-          <strong>83%</strong>
-          <span>10 of 12 observer slots assigned</span>
-        </article>
-        <article className="kpi-highlight">
-          <p>List sufficiency</p>
-          <strong>92%</strong>
-          <span>23 of 25 faculty have an observer</span>
-        </article>
-        <article className="kpi-highlight">
-          <p>Survey completion</p>
-          <strong>75%</strong>
-          <span>18 of 24 responses received</span>
-        </article>
-      </section>
+      {isLoading && <p>Loading KPI report...</p>}
+      {error && <p role="alert">{error}</p>}
 
-      <div className="kpi-content">
-        <section aria-labelledby="kpi-table-title" className="kpi-table-section">
-          <h2 className="section-heading" id="kpi-table-title">Cycle KPIs</h2>
-          <div className="kpi-table-scroll">
-            <table className="screen-table kpi-table">
-              <thead>
-                <tr>
-                  <th scope="col">KPI</th>
-                  <th scope="col">Fall 2026</th>
-                  <th scope="col">Spring 2027</th>
-                  <th scope="col">How it&apos;s measured</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kpis.map((row) => (
-                  <tr key={row.metric}>
-                    <th scope="row">{row.metric}</th>
-                    <td>{row.fall}</td>
-                    <td>{row.spring}</td>
-                    <td className="kpi-method">{row.method}</td>
-                  </tr>
+      {current && (
+        <>
+          <section aria-label="Current cycle indicators" className="kpi-highlights">
+            <article className="kpi-highlight">
+              <p>Participation rate</p>
+              <strong>{percent(current.participationRate)}</strong>
+              <span>{current.signedUp} of {current.due} professors due signed up</span>
+            </article>
+            <article className="kpi-highlight">
+              <p>Observer utilization</p>
+              <strong>{percent(current.observerUtilization.rate)}</strong>
+              <span>{current.observerUtilization.observed} of {current.observerUtilization.signedUp} signed-up professors observed a class</span>
+            </article>
+            <article className="kpi-highlight">
+              <p>List sufficiency</p>
+              <strong>{average(current.listSufficiency.average)}</strong>
+              <span>{current.listSufficiency.matches} matches across {current.listSufficiency.signups} sign-ups</span>
+            </article>
+            <article className="kpi-highlight">
+              <p>Survey completion</p>
+              <strong>{percent(current.survey.rate)}</strong>
+              <span>
+                {current.survey.completed} of {current.survey.reachedSurvey} observed professors submitted a survey
+              </span>
+            </article>
+          </section>
+
+          <div className="kpi-content">
+            <section aria-labelledby="kpi-table-title" className="kpi-table-section">
+              <h2 className="section-heading" id="kpi-table-title">Cycle KPIs</h2>
+              <div className="kpi-table-scroll">
+                <table className="screen-table kpi-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">KPI</th>
+                      <th scope="col">{current.cycle}</th>
+                      <th scope="col">{previous?.cycle ?? 'Previous cycle'}</th>
+                      <th scope="col">How it&apos;s measured</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((item) => (
+                      <tr key={item.metric}>
+                        <th scope="row">{item.metric}</th>
+                        <td>{item.currentValue}</td>
+                        <td>{item.previousValue}</td>
+                        <td className="kpi-method">{item.method}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <aside className="kpi-side">
+              <section aria-labelledby="hire-level-title" className="kpi-side-card">
+                <h2 id="hire-level-title">Participation by hire level</h2>
+                {current.byRank.map((rank) => (
+                  <div className="hire-level-bar" key={rank.rank}>
+                    <div className="hire-level-bar__heading">
+                      <span>{rankLabel(rank.rank)}</span>
+                      <strong>{percent(rank.rate)}</strong>
+                    </div>
+                    <div
+                      aria-label={`${percent(rank.rate)} participation`}
+                      className="hire-level-bar__track"
+                    >
+                      <span style={{ width: `${Math.round((rank.rate ?? 0) * 100)}%` }} />
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </section>
+
+              <section aria-labelledby="survey-feedback-title" className="kpi-side-card survey-feedback">
+                <h2 id="survey-feedback-title">Survey feedback</h2>
+                <p>
+                  {current.survey.completed} of {current.survey.reachedSurvey} professors who signed up, sent a request, and were observed submitted the final survey.
+                  {!current.survey.surveysStored && ' Survey answers are not stored yet, so completed surveys stay at 0.'}
+                </p>
+                <button
+                  className="text-link kpi-feedback-link"
+                  onClick={() =>
+                    setNotice(
+                      current.survey.surveysStored
+                        ? `${current.survey.completed} survey responses are stored for ${current.cycle}.`
+                        : 'No survey responses are stored yet. The completion rate counts professors who signed up, sent a request, were observed, and submitted a survey.',
+                    )
+                  }
+                  type="button"
+                >
+                  Read all responses
+                </button>
+              </section>
+            </aside>
           </div>
-        </section>
-
-        <aside className="kpi-side">
-          <section aria-labelledby="hire-level-title" className="kpi-side-card">
-            <h2 id="hire-level-title">Participation by hire level</h2>
-            <div className="hire-level-bar">
-              <div className="hire-level-bar__heading"><span>Professor</span><strong>88%</strong></div>
-              <div aria-label="88 percent participation" className="hire-level-bar__track">
-                <span />
-              </div>
-            </div>
-            <div className="hire-level-bar">
-              <div className="hire-level-bar__heading"><span>Associate professor</span><strong>67%</strong></div>
-              <div aria-label="67 percent participation" className="hire-level-bar__track">
-                <span className="hire-level-bar__fill--mid" />
-              </div>
-            </div>
-            <div className="hire-level-bar">
-              <div className="hire-level-bar__heading"><span>Assistant professor</span><strong>50%</strong></div>
-              <div aria-label="50 percent participation" className="hire-level-bar__track">
-                <span className="hire-level-bar__fill--low" />
-              </div>
-            </div>
-          </section>
-
-          <section aria-labelledby="survey-feedback-title" className="kpi-side-card survey-feedback">
-            <h2 id="survey-feedback-title">Survey feedback</h2>
-            <p>17 of 20 said the process was OK<br />3 uploaded files about problems<br />Top issue: scheduling conflicts</p>
-            <button
-              className="text-link kpi-feedback-link"
-              onClick={() => setNotice('Survey responses: 17 faculty said the process was OK. Common themes were scheduling conflicts, clear instructions, and observer availability.')}
-              type="button"
-            >
-              Read all responses
-            </button>
-          </section>
-        </aside>
-      </div>
+        </>
+      )}
 
       {notice && (
         <div className="kpi-feedback-dialog" role="dialog" aria-modal="true" aria-label="Survey responses">
@@ -127,7 +270,7 @@ export default function CycleKpiPage() {
               ×
             </button>
             <h2>Survey responses</h2>
-            <p>{notice.replace('Survey responses: ', '')}</p>
+            <p>{notice}</p>
           </div>
         </div>
       )}
