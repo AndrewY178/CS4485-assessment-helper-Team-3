@@ -2,6 +2,7 @@ import { get, put } from './client'
 
 export interface SignupDatesResponse {
   signup_semester: string
+  course_id: number | null
   meeting_id: number | null
   dates: string[]
 }
@@ -22,11 +23,12 @@ export function getSignupDates(
 // PUT /api/signup-dates: replaces the offered dates (dates are YYYY-MM-DD)
 export function saveSignupDates(
   semester: string,
+  courseId: number,
   dates: string[],
   token: string,
 ) {
   return put<SignupDatesResponse>('/api/signup-dates', {
-    body: { signup_semester: semester, dates },
+    body: { signup_semester: semester, course_id: courseId, dates },
     token,
   })
 }

@@ -75,7 +75,12 @@ def get_signup_dates():
         )
         dates = _offered_dates(cur, g.user_id, signup_semester)
 
-    return jsonify(signup_semester=signup_semester, meeting_id=meeting_id, dates=dates)
+    return jsonify(
+        signup_semester=signup_semester,
+        course_id=signup["signup_course"],
+        meeting_id=meeting_id,
+        dates=dates,
+    )
 
 
 @signup_dates_bp.put("/api/signup-dates")
@@ -88,8 +93,26 @@ def save_signup_dates():
     dates = _parse_dates(body.get("dates"))
     if dates is None:
         return error("dates must be a list of future dates", 400)
+    raw_course_id = body.get("course_id")
+    try:
+        course_id = int(raw_course_id)
+    except (TypeError, ValueError):
+        return error("course_id must be an integer", 400)
+    if course_id <= 0:
+        return error("course_id must be an integer", 400)
 
     with transaction() as cur:
+        cur.execute(
+            """
+            SELECT course_id
+            FROM courses
+            WHERE course_id = %s AND prof_id = %s AND semester = %s
+            """,
+            (course_id, g.user_id, signup_semester),
+        )
+        if not cur.fetchone():
+            return error("The selected course is not taught by you this semester", 422)
+
         # lock the sign-up so two saves at once can't create two meetings
         cur.execute(
             """
@@ -102,17 +125,52 @@ def save_signup_dates():
         )
         signup = cur.fetchone()
         if not signup:
-            return error("No sign-up found for this semester", 404)
-        course_id = signup["signup_course"]
-        if course_id is None:
-            return error("This sign-up has no course", 422)
+            cur.execute(
+                """
+                INSERT INTO observees (observee_id, signup_sem, signup_course)
+                VALUES (%s, %s, %s)
+                """,
+                (g.user_id, signup_semester, course_id),
+            )
+            previous_course_id = None
+        else:
+            previous_course_id = signup["signup_course"]
+            if previous_course_id != course_id:
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM meetings m
+                    JOIN observation_requests r ON r.meeting_id = m.meeting_id
+                    WHERE m.course_id = %s AND r.status IN (%s, %s, %s, %s, %s, %s)
+                    LIMIT 1
+                    """,
+                    (previous_course_id, *SENT_STATUSES),
+                )
+                if cur.fetchone():
+                    return error(
+                        "Requests have already been sent, so the course can't be changed",
+                        409,
+                    )
+                cur.execute(
+                    """
+                    UPDATE observees
+                    SET signup_course = %s
+                    WHERE observee_id = %s AND signup_sem = %s
+                    """,
+                    (course_id, g.user_id, signup_semester),
+                )
 
         # the meeting has no observer or date until the observee confirms one
-        meeting_id = _meeting_id(cur, course_id)
+        meeting_id = _meeting_id(cur, previous_course_id) if previous_course_id else None
         if meeting_id is None:
             cur.execute("INSERT INTO meetings (course_id) VALUES (%s)", (course_id,))
             meeting_id = cur.lastrowid
         else:
+            if previous_course_id != course_id:
+                cur.execute(
+                    "UPDATE meetings SET course_id = %s WHERE meeting_id = %s",
+                    (course_id, meeting_id),
+                )
             placeholders = ", ".join(["%s"] * len(SENT_STATUSES))
             cur.execute(
                 f"""
@@ -139,4 +197,9 @@ def save_signup_dates():
         )
         saved = _offered_dates(cur, g.user_id, signup_semester)
 
-    return jsonify(signup_semester=signup_semester, meeting_id=meeting_id, dates=saved)
+    return jsonify(
+        signup_semester=signup_semester,
+        course_id=course_id,
+        meeting_id=meeting_id,
+        dates=saved,
+    )
