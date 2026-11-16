@@ -198,7 +198,7 @@ export default function TemplatePage() {
       {(loadingList || loadingTemplate) && <p role="status">Loading evaluation template…</p>}
       {!loadingList && semesters.length === 0 && !error && <p>No evaluation cycles or template versions are available.</p>}
       {selectedTemplate && !selectedTemplate.isEditable && (
-        <p className="template-session-note">This semester’s template is read-only. Templates lock when the signup deadline passes.</p>
+        <p className="template-session-note">This semester’s template is read-only because the cycle is closed.</p>
       )}
       {selectedTemplate?.isInheritedDraft && selectedTemplate.isEditable && (
         <p className="template-session-note">This is a draft copied from the latest saved template. Saving creates a new version for {selectedSemester}.</p>

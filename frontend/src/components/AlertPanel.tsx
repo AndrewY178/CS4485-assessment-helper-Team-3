@@ -18,7 +18,13 @@ function formatAlert(alert: DashboardAlert): string {
   return [alert.professorName, alert.course, schedule].filter(Boolean).join(' · ')
 }
 
-export default function AlertPanel({ alerts }: { alerts: DashboardAlert[] }) {
+export default function AlertPanel({
+  alerts,
+  criteriaCount,
+}: {
+  alerts: DashboardAlert[]
+  criteriaCount: number | null
+}) {
   return (
     <aside aria-label="Observation notes" className="alert-panels">
       <section className="alert-panel" aria-labelledby="eligible-observers">
@@ -40,8 +46,11 @@ export default function AlertPanel({ alerts }: { alerts: DashboardAlert[] }) {
           Observation template
         </h2>
         <p>
-          8 criteria · 1–5 rating scale. Only AC members can edit. Signed
-          observations never change.
+          {criteriaCount == null
+            ? 'Loading the observation template…'
+            : criteriaCount === 0
+              ? 'No criteria are saved for this semester yet. Only AC members can edit.'
+              : `${criteriaCount} criteria · 1–5 rating scale. Only AC members can edit. Signed observations never change.`}
         </p>
         <AppLink className="text-link" to="/template">
           Edit template

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/auth'
 import { getFacultyCourses } from '../../api/courses'
 import { getCycleDeadline } from '../../api/cycles'
+import { getFacultyStatus, type FacultyStatusResponse } from '../../api/facultyStatus'
 import { getPastObservations } from '../../api/pastObservations'
 import { TEMPORARY_SCHEDULE_SEMESTER } from '../../api/schedule'
 import { getSignupDates, saveSignupDates } from '../../api/signupDates'
@@ -76,7 +77,7 @@ export default function FacultyStatusPage() {
   const [courses, setCourses] = useState<FacultyCourse[]>([])
   const [status, setStatus] = useState<FacultyStatusResponse | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null)
-  const [dates, setDates] = useState(initialDates)
+  const [dates, setDates] = useState<string[]>([])
   const [newDate, setNewDate] = useState('')
   const [notice, setNotice] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -118,7 +119,7 @@ export default function FacultyStatusPage() {
       .then((rows) => {
         if (controller.signal.aborted) return
         setCourses(rows)
-        setSelectedCourse((current) => current || (rows[0] ? String(rows[0].course_id) : ''))
+        setSelectedCourse((current) => current ?? rows[0]?.course_id ?? null)
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -157,7 +158,6 @@ export default function FacultyStatusPage() {
       .then((facultyStatus) => {
         if (controller.signal.aborted) return null
         setStatus(facultyStatus)
-        console.log("about to get stuff")
         return Promise.all([
           getFacultyCourses(facultyStatus.semester, token, controller.signal),
           getSignupDates(facultyStatus.semester, token, controller.signal)
@@ -174,9 +174,8 @@ export default function FacultyStatusPage() {
         if (!result || controller.signal.aborted) return
 
         const [available, saved] = result
-        console.log(available)
         if (controller.signal.aborted) return
-        setCourses(available.courses)
+        setCourses(available)
         setSelectedCourse(saved.course_id)
         setDates(saved.dates)
         setSubmitted(true)
@@ -226,7 +225,7 @@ export default function FacultyStatusPage() {
   }
 
   function cancelSignUp() {
-    setSelectedCourse(courses[0] ? String(courses[0].course_id) : '')
+    setSelectedCourse(courses[0]?.course_id ?? null)
     setDates(observationDeadline ? upcomingDates(observationDeadline) : [])
     setNewDate('')
     setSubmitted(false)
@@ -273,13 +272,13 @@ export default function FacultyStatusPage() {
             {courses.length === 0 && <p>No courses are stored for you this semester.</p>}
             {courses.map((course) => (
               <label
-                className={`course-option${selectedCourse === String(course.course_id) ? ' course-option--selected' : ''}`}
+                className={`course-option${selectedCourse === course.course_id ? ' course-option--selected' : ''}`}
                 key={course.course_id}
               >
                 <input
-                  checked={selectedCourse === String(course.course_id)}
+                  checked={selectedCourse === course.course_id}
                   name="course"
-                  onChange={() => setSelectedCourse(String(course.course_id))}
+                  onChange={() => setSelectedCourse(course.course_id)}
                   type="radio"
                   value={String(course.course_id)}
                 />
