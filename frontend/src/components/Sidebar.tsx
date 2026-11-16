@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { getUnreadNotificationCount } from '../api/notifications'
 import { useAuth, useLogout } from '../context/AuthContext'
-import { AppLink, useNavigation } from '../context/NavigationContext'
+import { AppLink } from '../context/NavigationContext'
 
 const acNavItems = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -22,7 +22,6 @@ const observerItems = [
 const observeeItems = [
   { label: 'My Observer', to: '/my-observers' },
   { label: 'My Observation', to: '/my-observation' },
-  { label: 'Survey', to: '/survey' },
 ]
 
 interface FacultyGroupProps {
@@ -76,9 +75,8 @@ function FacultyGroup({
 }
 
 export default function Sidebar() {
-  const { roles, token, canSwitchRoleForTesting, switchRoleForTesting } = useAuth()
+  const { name, roles, token } = useAuth()
   const logout = useLogout()
-  const { navigate, pathname } = useNavigation()
   const isACMember = roles.includes('AC Member')
   const isFaculty = roles.includes('Faculty') && !isACMember
   const [observerOpen, setObserverOpen] = useState(true)
@@ -119,7 +117,7 @@ export default function Sidebar() {
       window.removeEventListener('assessment-notifications-read', handleNotificationsRead)
       window.clearInterval(intervalId)
     }
-  }, [pathname, token])
+  }, [token])
 
   function messagesLabel() {
     const unreadCount = unreadState.token === token ? unreadState.count : 0
@@ -137,12 +135,6 @@ export default function Sidebar() {
         )}
       </>
     )
-  }
-
-  function handleRoleSwitch() {
-    const nextRole = isACMember ? 'Faculty' : 'AC Member'
-    switchRoleForTesting(nextRole)
-    navigate(nextRole === 'AC Member' ? '/dashboard' : '/faculty/status')
   }
 
   return (
@@ -200,6 +192,13 @@ export default function Sidebar() {
             >
               My Schedule
             </AppLink>
+            <AppLink
+              activeClassName="sidebar__link--active"
+              className="sidebar__link"
+              to="/survey"
+            >
+              Survey
+            </AppLink>
             <FacultyGroup
               id="observer-navigation"
               items={observerItems}
@@ -220,17 +219,9 @@ export default function Sidebar() {
 
       <div className="sidebar__account">
         <span className="sidebar__role">
-          {isACMember ? 'AC Member' : 'Faculty'}
+          {name ?? 'Account'}
         </span>
-        {canSwitchRoleForTesting && (
-          <button
-            className="sidebar__role-switch"
-            onClick={handleRoleSwitch}
-            type="button"
-          >
-            Switch to {isACMember ? 'Faculty' : 'AC Member'}
-          </button>
-        )}
+        
         <button className="sidebar__logout" onClick={logout} type="button">
           Log out
         </button>
