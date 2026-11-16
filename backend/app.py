@@ -151,7 +151,10 @@ TRACKING_SELECT = """
         m.meeting_date,
         m.observer_id,
         observer.professor_name AS observer_name,
-        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists,
+        CASE
+            WHEN e.evaluation_status = 'submitted' THEN 1
+            ELSE 0
+        END AS report_exists,
         COALESCE(requests.total_count, 0) AS request_total,
         COALESCE(requests.approved_count, 0) AS approved_count,
         COALESCE(requests.pending_count, 0) AS pending_count,
@@ -165,7 +168,7 @@ TRACKING_SELECT = """
     LEFT JOIN courses c ON c.course_id = o.signup_course
     LEFT JOIN meetings m ON m.course_id = o.signup_course
     LEFT JOIN professors observer ON observer.professor_id = m.observer_id
-    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    LEFT JOIN evaluations e ON e.meeting_id = m.meeting_id
     LEFT JOIN (
         SELECT
             meeting_id,
@@ -198,11 +201,14 @@ FACULTY_SCHEDULE_CONDUCTING_SELECT = """
         c.section_number,
         c.course_name,
         observee.professor_name AS counterpart_name,
-        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists
+        CASE
+            WHEN e.evaluation_status = 'submitted' THEN 1
+            ELSE 0
+        END AS report_exists
     FROM meetings m
     JOIN courses c ON c.course_id = m.course_id
     JOIN professors observee ON observee.professor_id = c.prof_id
-    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    LEFT JOIN evaluations e ON e.meeting_id = m.meeting_id
     WHERE m.observer_id = %s
       AND c.semester = %s
       AND m.observer_id IS NOT NULL
@@ -218,11 +224,14 @@ FACULTY_SCHEDULE_OBSERVEE_SELECT = """
         c.section_number,
         c.course_name,
         observer.professor_name AS counterpart_name,
-        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists
+        CASE
+            WHEN e.evaluation_status = 'submitted' THEN 1
+            ELSE 0
+        END AS report_exists
     FROM meetings m
     JOIN courses c ON c.course_id = m.course_id
     JOIN professors observer ON observer.professor_id = m.observer_id
-    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    LEFT JOIN evaluations e ON e.meeting_id = m.meeting_id
     WHERE c.prof_id = %s
       AND c.semester = %s
       AND m.observer_id IS NOT NULL
