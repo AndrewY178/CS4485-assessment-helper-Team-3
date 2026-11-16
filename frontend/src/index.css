@@ -1186,6 +1186,16 @@ tbody th {
   font-weight: 500;
 }
 
+.rank-select {
+  min-width: 8.5rem;
+  padding: 4px 8px;
+  border: 1px solid var(--line, #d7d2c8);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+
 .screen-table__empty {
   height: 104px;
   color: var(--muted);
@@ -1695,6 +1705,28 @@ tbody th {
 
 .status-label--complete {
   color: var(--green-700);
+}
+
+.past-observations {
+  display: grid;
+  gap: 20px;
+}
+
+.past-observation {
+  display: grid;
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line, #d7d2c8);
+}
+
+.past-observation h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.past-observation header p {
+  margin: 4px 0 0;
+  color: var(--muted);
 }
 
 .observation-page {

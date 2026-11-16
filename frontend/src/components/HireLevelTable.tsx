@@ -1,6 +1,6 @@
-import { hireLevelRows } from '../data/mockData'
+import type { DashboardHireLevel } from '../types/api'
 
-export default function HireLevelTable() {
+export default function HireLevelTable({ rows }: { rows: DashboardHireLevel[] }) {
   return (
     <section aria-labelledby="hire-level-title" className="hire-level">
       <h2 className="section-heading" id="hire-level-title">
@@ -19,7 +19,7 @@ export default function HireLevelTable() {
             </tr>
           </thead>
           <tbody>
-            {hireLevelRows.map((row) => (
+            {rows.map((row) => (
               <tr key={row.hireLevel}>
                 <th scope="row">{row.hireLevel}</th>
                 <td>{row.cycle}</td>

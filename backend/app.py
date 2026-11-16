@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 import time
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
@@ -12,15 +12,22 @@ from auth import ac_required, auth_bp, faculty_required
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
 from observer_approval import observer_approval_bp
+from kpis import kpis_bp
+from dashboard import dashboard_bp
+from professor_rank import professor_rank_bp
+from past_observations import past_observations_bp
 from feedback import feedback_bp
 from notifications import (
     insert_notifications,
     notifications_bp,
     send_notification_email,
 )
-
+from faculty_status import faculty_status_bp
+from current_semester import current_semester_bp
+from templates import templates_bp
 from db import query, pool, transaction
 from datetime import datetime, timezone
+from cycle_setup import cycle_setup_bp
 
 EMAILJS_RATE_LIMIT_SECONDS = 1.1
 
@@ -33,7 +40,15 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(reminders_bp)
 app.register_blueprint(signup_dates_bp)
 app.register_blueprint(observer_approval_bp)
+app.register_blueprint(kpis_bp)
+app.register_blueprint(dashboard_bp)
+app.register_blueprint(professor_rank_bp)
+app.register_blueprint(past_observations_bp)
 app.register_blueprint(feedback_bp)
+app.register_blueprint(cycle_setup_bp)
+app.register_blueprint(current_semester_bp)
+app.register_blueprint(faculty_status_bp)
+app.register_blueprint(templates_bp)
 app.register_blueprint(notifications_bp)
 
 # SQL statements
@@ -126,39 +141,14 @@ AND o.signup_sem = s.semester
         )
         AND busy.course_start_time < s.course_end_time
         AND busy.course_end_time > s.course_start_time
-LIMIT 5
   )
+LIMIT 5
 """
 COURSE_SELECT = f"""
     SELECT *
     FROM courses c
 """
 
-CYCLE_SELECT = """
-    SELECT
-        semester,
-        cycle_status,
-        signup_deadline,
-        observation_deadline,
-        feedback_deadline,
-        updated_at
-    FROM evaluation_cycles
-"""
-
-CYCLE_UPSERT = """
-    INSERT INTO evaluation_cycles (
-        semester,
-        cycle_status,
-        signup_deadline,
-        observation_deadline,
-        feedback_deadline
-    ) 
-    VALUES (%s, %s, %s, %s, %s)
-    ON DUPLICATE KEY UPDATE
-        signup_deadline = VALUES(signup_deadline),
-        observation_deadline = VALUES(observation_deadline),
-        feedback_deadline = VALUES(feedback_deadline)
-"""
 TRACKING_SELECT = """
     SELECT
         o.observee_id,
@@ -472,6 +462,150 @@ def get_observees():
     )
     return jsonify(rows)
 
+
+def _require_signup_semester():
+    signup_semester = request.args.get("signup_semester", "").strip()
+    if not signup_semester:
+        return None, (jsonify(error="signup_semester is required"), 400)
+    return signup_semester, None
+
+
+@app.route("/api/cycles/deadline")
+def get_cycle_deadline():
+    signup_semester, failure = _require_signup_semester()
+    if failure:
+        return failure
+
+    rows = query(
+        """
+        SELECT
+            signup_deadline,
+            observation_deadline,
+            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
+        FROM cycles
+        WHERE semester = %s
+        """,
+        (signup_semester,),
+    )
+    if not rows:
+        return jsonify(error="No deadline is stored for that semester"), 404
+
+    days_remaining = int(rows[0]["days_remaining"])
+    return jsonify(
+        signup_deadline=_iso_date(rows[0]["signup_deadline"]),
+        observation_deadline=_iso_date(rows[0]["observation_deadline"]),
+        days_remaining=days_remaining,
+        is_past=days_remaining < 0,
+    )
+
+
+def _calendar_day(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return date.fromisoformat(value.strip()[:10])
+    except ValueError:
+        return None
+
+
+@app.route("/api/cycles/deadline", methods=["PUT"])
+@ac_required
+def save_cycle_deadline():
+    body = request.get_json(silent=True) or {}
+    semester = str(body.get("semester") or "").strip()
+    signup_deadline = _calendar_day(body.get("signup_deadline"))
+    observation_deadline = _calendar_day(body.get("observation_deadline"))
+    if not semester or signup_deadline is None or observation_deadline is None:
+        return jsonify(error="semester, signup_deadline, and observation_deadline are required"), 400
+    if observation_deadline < signup_deadline:
+        return jsonify(error="observation_deadline must be on or after signup_deadline"), 400
+
+    query(
+        """
+        INSERT INTO cycles (semester, signup_deadline, observation_deadline)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            signup_deadline = VALUES(signup_deadline),
+            observation_deadline = VALUES(observation_deadline)
+        """,
+        (semester, signup_deadline, observation_deadline),
+        fetch=False,
+    )
+    rows = query(
+        """
+        SELECT
+            signup_deadline,
+            observation_deadline,
+            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
+        FROM cycles
+        WHERE semester = %s
+        """,
+        (semester,),
+    )
+    days_remaining = int(rows[0]["days_remaining"])
+    return jsonify(
+        signup_deadline=_iso_date(rows[0]["signup_deadline"]),
+        observation_deadline=_iso_date(rows[0]["observation_deadline"]),
+        days_remaining=days_remaining,
+        is_past=days_remaining < 0,
+    )
+
+
+@app.route("/api/observees/no-observers")
+@ac_required
+def get_no_observer_observees():
+    signup_semester, failure = _require_signup_semester()
+    if failure:
+        return failure
+
+    rows = query(
+        """
+        SELECT observee_id, signup_sem, signup_course, status
+        FROM observees
+        WHERE signup_sem = %s AND status = 'no_observers'
+        """,
+        (signup_semester,),
+    )
+    return jsonify(rows)
+
+
+@app.route("/api/observees/uncompleted")
+@ac_required
+def get_uncompleted_observees():
+    signup_semester, failure = _require_signup_semester()
+    if failure:
+        return failure
+
+    rows = query(
+        """
+        SELECT
+            o.observee_id,
+            o.signup_sem,
+            MIN(m.meeting_date) AS meeting_date,
+            MAX(CASE
+                WHEN m.meeting_date IS NULL THEN 1
+                WHEN m.meeting_date < CURDATE() AND r.meeting_id IS NULL THEN 1
+                ELSE 0
+            END) AS uncompleted
+        FROM observees o
+        LEFT JOIN meetings m ON m.course_id = o.signup_course
+        LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+        WHERE o.signup_sem = %s
+        GROUP BY o.observee_id, o.signup_sem
+        """,
+        (signup_semester,),
+    )
+    return jsonify([
+        {
+            "observee_id": row["observee_id"],
+            "signup_sem": row["signup_sem"],
+            "meeting_date": _iso_date(row["meeting_date"]),
+            "uncompleted": bool(row["uncompleted"]),
+        }
+        for row in rows
+    ])
+
+
 # TODO: need this to return the list of observers from the observation request table that are for the inputted observee_id and signup_semester
 @app.route("/api/observers")
 def get_observe_list():
@@ -508,10 +642,47 @@ def get_observe_list():
             p.professor_department,
             ob_r.status,
             ob_r.selected_date,
+            (
+                SELECT CONCAT(taught.department, ' ', taught.course_number)
+                FROM courses taught
+                WHERE taught.prof_id = ob_r.observer_id
+                  AND taught.semester = target.semester
+                  AND taught.department = target.department
+                  AND CONCAT(SUBSTRING(taught.course_number, 1, 1), '000')
+                      = CONCAT(SUBSTRING(target.course_number, 1, 1), '000')
+                ORDER BY taught.course_number
+                LIMIT 1
+            ) AS teaches,
             0 AS currentObservationCount
         FROM observation_requests ob_r
         JOIN professors p ON p.professor_id = ob_r.observer_id
+        JOIN meetings meet ON meet.meeting_id = ob_r.meeting_id
+        JOIN courses target ON target.course_id = meet.course_id
         WHERE ob_r.meeting_id = %s
+          AND EXISTS (
+              SELECT 1
+              FROM courses taught
+              WHERE taught.prof_id = ob_r.observer_id
+                AND taught.semester = target.semester
+                AND taught.department = target.department
+                AND CONCAT(SUBSTRING(taught.course_number, 1, 1), '000')
+                    = CONCAT(SUBSTRING(target.course_number, 1, 1), '000')
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM courses busy
+              WHERE busy.prof_id = ob_r.observer_id
+                AND busy.semester = target.semester
+                AND (
+                    (INSTR(target.course_day, 'M') > 0 AND INSTR(busy.course_day, 'M') > 0)
+                 OR (INSTR(target.course_day, 'T') > 0 AND INSTR(busy.course_day, 'T') > 0)
+                 OR (INSTR(target.course_day, 'W') > 0 AND INSTR(busy.course_day, 'W') > 0)
+                 OR (INSTR(target.course_day, 'R') > 0 AND INSTR(busy.course_day, 'R') > 0)
+                 OR (INSTR(target.course_day, 'F') > 0 AND INSTR(busy.course_day, 'F') > 0)
+                )
+                AND busy.course_start_time < target.course_end_time
+                AND busy.course_end_time > target.course_start_time
+          )
         """,
         (selected[0]["meeting_id"],)
     )
@@ -711,6 +882,47 @@ class ObservationRuleError(Exception):
         self.status_code = status_code
 
 
+def _upcoming_class_dates(course_day, count=3):
+    """The next class meetings, including today, so an observer has dates to choose."""
+    weekdays = {
+        "M": 0,
+        "T": 1,
+        "W": 2,
+        "R": 3,
+        "F": 4,
+    }
+    token = (course_day or "").strip().upper().replace("TH", "R")
+    meeting_days = [weekdays[char] for char in token if char in weekdays]
+    if not meeting_days:
+        return []
+
+    found = []
+    current = date.today()
+    for _ in range(28):
+        if current.weekday() in meeting_days:
+            found.append(current)
+            if len(found) == count:
+                break
+        current += timedelta(days=1)
+    return found
+
+
+def _offered_dates_for_request(observee_id, signup_semester, course_day, existing):
+    if existing:
+        return existing
+    upcoming = _upcoming_class_dates(course_day)
+    for offered in upcoming:
+        query(
+            """
+            INSERT IGNORE INTO signup_dates (observee_id, signup_sem, offered_date)
+            VALUES (%s, %s, %s)
+            """,
+            (observee_id, signup_semester, offered),
+            fetch=False,
+        )
+    return [offered.isoformat() for offered in upcoming]
+
+
 def _iso_date(value):
     if value is None:
         return None
@@ -812,6 +1024,19 @@ def _load_observer_requests(observer_id):
     for date_row in date_rows:
         key = (date_row["observee_id"], date_row["signup_sem"])
         dates_by_signup.setdefault(key, []).append(_iso_date(date_row["offered_date"]))
+
+    for row in rows:
+        if row["status"] != "pending":
+            continue
+        key = (row["observee_id"], row["signup_sem"])
+        if dates_by_signup.get(key):
+            continue
+        dates_by_signup[key] = _offered_dates_for_request(
+            row["observee_id"],
+            row["signup_sem"],
+            row["course_day"],
+            [],
+        )
 
     return [
         _observer_request_record(
@@ -1579,65 +1804,61 @@ def get_faculty_schedule():
     })
     
 
+def _clock_text(value):
+    if value is None:
+        return None
+    if hasattr(value, "total_seconds"):
+        total = int(value.total_seconds())
+        return f"{total // 3600:02d}:{(total % 3600) // 60:02d}:00"
+    return str(value)
+
+
+@app.route("/api/faculty/courses")
+@faculty_required
+def get_faculty_courses():
+    semester = request.args.get("semester", "").strip()
+    if not semester:
+        return jsonify(error="semester is required"), 400
+
+    rows = query(
+        """
+        SELECT
+            course_id,
+            department,
+            course_number,
+            section_number,
+            course_name,
+            semester,
+            course_day,
+            course_start_time,
+            course_end_time,
+            room_number
+        FROM courses
+        WHERE prof_id = %s AND semester = %s
+        ORDER BY course_number, section_number
+        """,
+        (g.user_id, semester),
+    )
+    return jsonify([
+        {
+            "course_id": row["course_id"],
+            "department": row["department"],
+            "course_number": row["course_number"],
+            "section_number": row["section_number"],
+            "course_name": row["course_name"],
+            "semester": row["semester"],
+            "course_day": row["course_day"],
+            "course_start_time": _clock_text(row["course_start_time"]),
+            "course_end_time": _clock_text(row["course_end_time"]),
+            "room_number": row["room_number"],
+        }
+        for row in rows
+    ])
+
+
 @app.route("/api/health")
 def health():
     return jsonify(status="ok")
-
-@app.route("/api/schedule") # returns all evaluation cycles
-@ac_required
-def get_schedules():
-    rows = query(CYCLE_SELECT)
-    return jsonify(rows)
-
-
-@app.route("/api/schedule/<semester>", methods=["PUT"])
-@ac_required
-def save_schedule(semester):
-    data = request.get_json(silent=True)
-
-    if not isinstance(data, dict):
-        return jsonify(error="A JSON object is required"), 400
-
-    fields = [
-        "signupDeadline",
-        "observationDeadline",
-        "feedbackDeadline"
-    ]
-
-    deadlines = []
-
-    for field in fields:
-        value = data.get(field)
-
-        if not isinstance(value, str):
-            return jsonify(error=f"{field} is required"), 400
-
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            if parsed.tzinfo is None:
-                raise ValueError("Timezone is required")
-            deadlines.append(parsed.astimezone(timezone.utc))
-        except ValueError:
-            return jsonify(error=f"{field} must be a valid timezone-aware date"), 400
-
-    if not (deadlines[0] < deadlines[1] < deadlines[2]):
-        return jsonify(error="Deadlines must be in chronological order"), 400
-
-    #TODO: figure out what status to use
-    query(
-        CYCLE_UPSERT,
-        (
-            semester,
-            "draft",
-            deadlines[0].replace(tzinfo=None),
-            deadlines[1].replace(tzinfo=None),
-            deadlines[2].replace(tzinfo=None)
-        ),
-        fetch=False
-    )
-
-    return jsonify(message="Evaluation cycle saved successfully")
-
 
 # DON'T PUT ANYTHING BELOW THIS
 if __name__ == "__main__":
