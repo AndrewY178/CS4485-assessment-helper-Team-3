@@ -28,6 +28,7 @@ interface AuthContextValue {
   name: string | null
   roles: Role[]
   userId: string | null
+  token: string | null
   // rejects with an ApiError (its message is safe to show to the user)
   login: (email: string, password: string) => Promise<Role[]>
   logout: () => Promise<void>

@@ -75,7 +75,7 @@ function FacultyGroup({
 }
 
 export default function Sidebar() {
-  const { name, roles } = useAuth()
+  const { name, roles, token } = useAuth()
   const logout = useLogout()
   const isACMember = roles.includes('AC Member')
   const isFaculty = roles.includes('Faculty') && !isACMember
@@ -117,7 +117,7 @@ export default function Sidebar() {
       window.removeEventListener('assessment-notifications-read', handleNotificationsRead)
       window.clearInterval(intervalId)
     }
-  }, [pathname, token])
+  }, [token])
 
   function messagesLabel() {
     const unreadCount = unreadState.token === token ? unreadState.count : 0

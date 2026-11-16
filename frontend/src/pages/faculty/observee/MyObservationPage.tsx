@@ -4,54 +4,6 @@ import EvaluationQuestions from '../../../components/evaluation/EvaluationQuesti
 import { useAuth } from '../../../context/AuthContext'
 import type { EvaluationRecord } from '../../../types/evaluation'
 import '../../../styles/evaluation.css'
-import { ApiError } from '../../../api/auth'
-import { getPastObservations } from '../../../api/pastObservations'
-import { useAuth } from '../../../context/AuthContext'
-import type { PastObservation } from '../../../types/api'
-
-const reportFields: Array<{
-  field: keyof Pick<
-    PastObservation,
-    | 'content_clarity'
-    | 'student_engagement'
-    | 'openness_to_questions'
-    | 'tech_use'
-    | 'slide_readability'
-    | 'lecture_pace'
-  >
-  label: string
-}> = [
-  { field: 'content_clarity', label: 'Content clarity' },
-  { field: 'student_engagement', label: 'Student engagement' },
-  { field: 'openness_to_questions', label: 'Openness to questions' },
-  { field: 'tech_use', label: 'Tech use' },
-  { field: 'slide_readability', label: 'Slide readability' },
-  { field: 'lecture_pace', label: 'Lecture pace' },
-]
-
-function formatDate(value: string | null) {
-  if (!value) return '—'
-  const parsed = Date.parse(`${value}T00:00:00Z`)
-  if (Number.isNaN(parsed)) return value
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(parsed)
-}
-
-function relationship(observation: PastObservation, userId: string | null) {
-  const observed = userId !== null && String(observation.observeeId) === userId
-  const observing = userId !== null && String(observation.observerId) === userId
-  if (observed && !observing) {
-    return { role: 'Observee', counterpart: observation.observerName || '—' }
-  }
-  if (observing && !observed) {
-    return { role: 'Observer', counterpart: observation.observeeName }
-  }
-  return { role: 'Observee and observer', counterpart: observation.observeeName }
-}
 
 export default function MyObservationPage() {
   const { token } = useAuth()

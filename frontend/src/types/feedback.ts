@@ -23,3 +23,12 @@ export interface SaveFeedbackRequest {
   difficulties: string | null
   improvements: string | null
 }
+
+export interface FeedbackBreakdownResponse {
+  semester: string
+  counts: {
+    yes: number
+    mostly: number
+    no: number
+  }
+}

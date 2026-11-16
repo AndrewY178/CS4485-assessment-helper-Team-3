@@ -69,10 +69,6 @@ function formatDate(value: string) {
   }).format(date)
 }
 
-function formatDeadline(value: string | null) {
-  return value ? formatDate(value.slice(0, 10)) : 'Not set'
-}
-
 export default function FacultyStatusPage() {
   const [courses, setCourses] = useState<FacultyCourse[]>([])
   const [status, setStatus] = useState<FacultyStatusResponse | null>(null)
@@ -127,7 +123,15 @@ export default function FacultyStatusPage() {
       })
     getCycleDeadline(TEMPORARY_SCHEDULE_SEMESTER, controller.signal)
       .then((stored) => {
-        if (!controller.signal.aborted) setDeadline(stored)
+        if (!controller.signal.aborted) {
+          setDeadline(stored)
+          const storedObservationDeadline = stored.observation_deadline?.slice(0, 10) ?? ''
+          if (storedObservationDeadline) {
+            setDates((current) => (
+              current.length > 0 ? current : upcomingDates(storedObservationDeadline)
+            ))
+          }
+        }
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -143,11 +147,6 @@ export default function FacultyStatusPage() {
       })
     return () => controller.abort()
   }, [token])
-
-  useEffect(() => {
-    if (!observationDeadline || submitted) return
-    setDates((current) => (current.length > 0 ? current : upcomingDates(observationDeadline)))
-  }, [observationDeadline, submitted])
 
   // show the dates this person already saved, if any
   useEffect(() => {
