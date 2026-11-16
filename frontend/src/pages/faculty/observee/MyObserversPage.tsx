@@ -164,7 +164,7 @@ export default function MyObserversPage() {
       const saved = `Request sent to ${sentNames}.`
       setNotice(
         result.emailError
-          ? `${saved} The email could not be sent because notification email is not configured.`
+          ? `${saved} The in-app notifications were saved, but one or more emails could not be sent: ${result.emailError}`
           : saved,
       )
     } catch (caught) {
@@ -204,7 +204,7 @@ export default function MyObserversPage() {
     }
   }
 
-  async function acceptScheduledObserver(observerId: string, name: string) {
+  async function acceptScheduledObserver(observerId: string) {
     if (!token || !signupSemester) {
       setNotice('Your session is unavailable. Please sign in again.')
       return
@@ -222,12 +222,10 @@ export default function MyObserversPage() {
         : observers
       setObservers(available)
       setSelected([])
-      const scheduledNotice =
-        `${name} is scheduled for ${formatSelectedDate(result.selected_date)}. Another observer cannot be selected.`
       setNotice(
         result.emailError
-          ? `${scheduledNotice} The in-app notifications were saved, but one or more emails could not be sent.`
-          : scheduledNotice,
+          ? 'The in-app notifications were saved, but one or more emails could not be sent.'
+          : '',
       )
     } catch (caught) {
       setNotice(
@@ -270,13 +268,17 @@ export default function MyObserversPage() {
       <header className="participant-header">
         <div>
           <p className="participant-course">{courseLabel}</p>
-          <h1>Your observer list is ready</h1>
-          <p>Send a request to one or more observers. After an observer accepts a date, accept them here to schedule the observation. Requests expire after 48 hours.</p>
+          <h1>{isScheduled ? 'Your observer is confirmed' : 'Your observer list is ready'}</h1>
+          <p>
+            {isScheduled
+              ? 'Your observation has been scheduled. Review your observer and request history below.'
+              : 'Send a request to one or more observers. After an observer accepts a date, accept them here to schedule the observation. Requests expire after 48 hours.'}
+          </p>
         </div>
       </header>
 
       {isScheduled && (
-        <section aria-label="Scheduled observer" className="confirmed-observer-banner">
+        <section aria-label="Scheduled observer" className="confirmed-observer-banner" role="status">
           <div>
             <strong>{scheduledName} is your selected observer</strong>
             <p>Your observation is set for {scheduledDate}. Another observer cannot be selected.</p>
@@ -308,10 +310,10 @@ export default function MyObserversPage() {
 
       {!isLoading && !error && observers.length > 0 && (
         <div className="observer-list-scroll">
-          <table className="screen-table observer-list-table">
+          <table className={`screen-table observer-list-table${isScheduled ? ' observer-list-table--scheduled' : ''}`}>
             <thead>
               <tr>
-                <th scope="col"><span className="visually-hidden">Select</span></th>
+                {!isScheduled && <th scope="col"><span className="visually-hidden">Select</span></th>}
                 <th scope="col">Observer</th>
                 <th scope="col">Teaches</th>
                 <th scope="col">Request status</th>
@@ -325,7 +327,7 @@ export default function MyObserversPage() {
 
                 return (
                   <tr key={observerId}>
-                    <td>
+                    {!isScheduled && <td>
                       <input
                         aria-label={`Select ${name}`}
                         checked={selected.includes(observerId)}
@@ -333,7 +335,7 @@ export default function MyObserversPage() {
                         onChange={() => toggleObserver(observerId)}
                         type="checkbox"
                       />
-                    </td>
+                    </td>}
                     <td>{name}</td>
                     <td>{observer.teaches || '—'}</td>
                     <td>
@@ -342,7 +344,7 @@ export default function MyObserversPage() {
                         <button
                           className="button button--primary observer-accept"
                           disabled={acceptingId !== null}
-                          onClick={() => acceptScheduledObserver(observerId, name)}
+                          onClick={() => acceptScheduledObserver(observerId)}
                           type="button"
                         >
                           {acceptingId === observerId ? 'Accepting...' : 'Accept'}
@@ -357,15 +359,17 @@ export default function MyObserversPage() {
         </div>
       )}
 
-      <footer className="observer-list-actions">
-        <p>
-          {/* TODO: needs backend field */}
-          Requests include your dates: —
-        </p>
-        <button className="button button--outline" disabled={isSending || isScheduled} onClick={sendRequests} type="button">
-          {isSending ? 'Sending request...' : 'Send request to selected'}
-        </button>
-      </footer>
+      {!isScheduled && (
+        <footer className="observer-list-actions">
+          <p>
+            {/* TODO: needs backend field */}
+            Requests include your dates: —
+          </p>
+          <button className="button button--outline" disabled={isSending} onClick={sendRequests} type="button">
+            {isSending ? 'Sending request...' : 'Send request to selected'}
+          </button>
+        </footer>
+      )}
 
       {allInvitedObserversDeclined && !isScheduled && (
         <p className="observer-list-help">
