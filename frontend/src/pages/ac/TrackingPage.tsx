@@ -18,6 +18,7 @@ const statusLabels: Record<TrackingStatus, string> = {
   scheduled: 'Scheduled',
   'report-pending': 'Report pending',
   completed: 'Completed',
+  canceled: 'Canceled',
   'needs-attention': 'Needs attention',
 }
 
@@ -26,11 +27,14 @@ const summaryStatuses: TrackingStatus[] = [
   'scheduled',
   'report-pending',
   'completed',
+  'canceled',
   'needs-attention',
 ]
 
 function stageClass(status: TrackingStatus) {
-  return status === 'needs-attention'
+  return status === 'canceled'
+    ? 'observation-stage observation-stage--canceled'
+    : status === 'needs-attention'
     ? 'observation-stage observation-stage--warning'
     : 'observation-stage'
 }

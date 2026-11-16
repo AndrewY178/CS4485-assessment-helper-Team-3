@@ -1,27 +1,37 @@
 from pathlib import Path
 import json
+import time
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 from mysql.connector import Error, IntegrityError
 from dotenv import load_dotenv
 from auth import ac_required, auth_bp, faculty_required
-from emailservice import EmailServiceError, send_email
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
 from observer_approval import observer_approval_bp
+from kpis import kpis_bp
+from dashboard import dashboard_bp
+from professor_rank import professor_rank_bp
+from past_observations import past_observations_bp
+from feedback import feedback_bp
+from notifications import (
+    insert_notifications,
+    notifications_bp,
+    send_notification_email,
+)
 from faculty_status import faculty_status_bp
 from current_semester import current_semester_bp
-from feedback import feedback_bp
 from templates import templates_bp
-from notifications import notifications_bp
-
 from db import query, pool, transaction
 from datetime import datetime, timezone
 from cycle_setup import cycle_setup_bp
 from current_semester import current_semester_bp
+from evaluations import evaluations_bp
+
+EMAILJS_RATE_LIMIT_SECONDS = 1.1
 
 # use the .env at the repo root 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -32,12 +42,17 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(reminders_bp)
 app.register_blueprint(signup_dates_bp)
 app.register_blueprint(observer_approval_bp)
+app.register_blueprint(kpis_bp)
+app.register_blueprint(dashboard_bp)
+app.register_blueprint(professor_rank_bp)
+app.register_blueprint(past_observations_bp)
+app.register_blueprint(feedback_bp)
 app.register_blueprint(cycle_setup_bp)
 app.register_blueprint(current_semester_bp)
 app.register_blueprint(faculty_status_bp)
-app.register_blueprint(feedback_bp)
 app.register_blueprint(templates_bp)
 app.register_blueprint(notifications_bp)
+app.register_blueprint(evaluations_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
@@ -129,8 +144,8 @@ AND o.signup_sem = s.semester
         )
         AND busy.course_start_time < s.course_end_time
         AND busy.course_end_time > s.course_start_time
-LIMIT 5
   )
+LIMIT 5
 """
 COURSE_SELECT = f"""
     SELECT *
@@ -161,6 +176,7 @@ TRACKING_SELECT = """
         COALESCE(requests.accepted_count, 0) AS accepted_count,
         COALESCE(requests.declined_count, 0) AS declined_count,
         COALESCE(requests.confirmed_count, 0) AS confirmed_count,
+        COALESCE(requests.canceled_count, 0) AS canceled_count,
         COALESCE(requests.not_selected_count, 0) AS not_selected_count,
         COALESCE(requests.expired_count, 0) AS expired_count
     FROM observees o
@@ -181,6 +197,7 @@ TRACKING_SELECT = """
             SUM(status = 'accepted') AS accepted_count,
             SUM(status = 'declined') AS declined_count,
             SUM(status = 'confirmed') AS confirmed_count,
+            SUM(status = 'canceled') AS canceled_count,
             SUM(status = 'not_selected') AS not_selected_count,
             SUM(
                 status = 'expired'
@@ -241,6 +258,8 @@ FACULTY_SCHEDULE_OBSERVEE_SELECT = """
 
 
 def tracking_status(row):
+    if row["canceled_count"]:
+        return "canceled"
     if row["report_exists"]:
         return "completed"
 
@@ -293,6 +312,7 @@ def tracking_record(row):
             "accepted": int(row["accepted_count"] or 0),
             "declined": int(row["declined_count"] or 0),
             "confirmed": int(row["confirmed_count"] or 0),
+            "canceled": int(row["canceled_count"] or 0),
             "notSelected": int(row["not_selected_count"] or 0),
             "expired": int(row["expired_count"] or 0),
         },
@@ -459,6 +479,150 @@ def get_observees():
     )
     return jsonify(rows)
 
+
+def _require_signup_semester():
+    signup_semester = request.args.get("signup_semester", "").strip()
+    if not signup_semester:
+        return None, (jsonify(error="signup_semester is required"), 400)
+    return signup_semester, None
+
+
+@app.route("/api/cycles/deadline")
+def get_cycle_deadline():
+    signup_semester, failure = _require_signup_semester()
+    if failure:
+        return failure
+
+    rows = query(
+        """
+        SELECT
+            signup_deadline,
+            observation_deadline,
+            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
+        FROM cycles
+        WHERE semester = %s
+        """,
+        (signup_semester,),
+    )
+    if not rows:
+        return jsonify(error="No deadline is stored for that semester"), 404
+
+    days_remaining = int(rows[0]["days_remaining"])
+    return jsonify(
+        signup_deadline=_iso_date(rows[0]["signup_deadline"]),
+        observation_deadline=_iso_date(rows[0]["observation_deadline"]),
+        days_remaining=days_remaining,
+        is_past=days_remaining < 0,
+    )
+
+
+def _calendar_day(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return date.fromisoformat(value.strip()[:10])
+    except ValueError:
+        return None
+
+
+@app.route("/api/cycles/deadline", methods=["PUT"])
+@ac_required
+def save_cycle_deadline():
+    body = request.get_json(silent=True) or {}
+    semester = str(body.get("semester") or "").strip()
+    signup_deadline = _calendar_day(body.get("signup_deadline"))
+    observation_deadline = _calendar_day(body.get("observation_deadline"))
+    if not semester or signup_deadline is None or observation_deadline is None:
+        return jsonify(error="semester, signup_deadline, and observation_deadline are required"), 400
+    if observation_deadline < signup_deadline:
+        return jsonify(error="observation_deadline must be on or after signup_deadline"), 400
+
+    query(
+        """
+        INSERT INTO cycles (semester, signup_deadline, observation_deadline)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            signup_deadline = VALUES(signup_deadline),
+            observation_deadline = VALUES(observation_deadline)
+        """,
+        (semester, signup_deadline, observation_deadline),
+        fetch=False,
+    )
+    rows = query(
+        """
+        SELECT
+            signup_deadline,
+            observation_deadline,
+            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
+        FROM cycles
+        WHERE semester = %s
+        """,
+        (semester,),
+    )
+    days_remaining = int(rows[0]["days_remaining"])
+    return jsonify(
+        signup_deadline=_iso_date(rows[0]["signup_deadline"]),
+        observation_deadline=_iso_date(rows[0]["observation_deadline"]),
+        days_remaining=days_remaining,
+        is_past=days_remaining < 0,
+    )
+
+
+@app.route("/api/observees/no-observers")
+@ac_required
+def get_no_observer_observees():
+    signup_semester, failure = _require_signup_semester()
+    if failure:
+        return failure
+
+    rows = query(
+        """
+        SELECT observee_id, signup_sem, signup_course, status
+        FROM observees
+        WHERE signup_sem = %s AND status = 'no_observers'
+        """,
+        (signup_semester,),
+    )
+    return jsonify(rows)
+
+
+@app.route("/api/observees/uncompleted")
+@ac_required
+def get_uncompleted_observees():
+    signup_semester, failure = _require_signup_semester()
+    if failure:
+        return failure
+
+    rows = query(
+        """
+        SELECT
+            o.observee_id,
+            o.signup_sem,
+            MIN(m.meeting_date) AS meeting_date,
+            MAX(CASE
+                WHEN m.meeting_date IS NULL THEN 1
+                WHEN m.meeting_date < CURDATE() AND r.meeting_id IS NULL THEN 1
+                ELSE 0
+            END) AS uncompleted
+        FROM observees o
+        LEFT JOIN meetings m ON m.course_id = o.signup_course
+        LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+        WHERE o.signup_sem = %s
+        GROUP BY o.observee_id, o.signup_sem
+        """,
+        (signup_semester,),
+    )
+    return jsonify([
+        {
+            "observee_id": row["observee_id"],
+            "signup_sem": row["signup_sem"],
+            "meeting_date": _iso_date(row["meeting_date"]),
+            "uncompleted": bool(row["uncompleted"]),
+        }
+        for row in rows
+    ])
+
+
 # TODO: need this to return the list of observers from the observation request table that are for the inputted observee_id and signup_semester
 @app.route("/api/observers")
 def get_observe_list():
@@ -495,10 +659,47 @@ def get_observe_list():
             p.professor_department,
             ob_r.status,
             ob_r.selected_date,
+            (
+                SELECT CONCAT(taught.department, ' ', taught.course_number)
+                FROM courses taught
+                WHERE taught.prof_id = ob_r.observer_id
+                  AND taught.semester = target.semester
+                  AND taught.department = target.department
+                  AND CONCAT(SUBSTRING(taught.course_number, 1, 1), '000')
+                      = CONCAT(SUBSTRING(target.course_number, 1, 1), '000')
+                ORDER BY taught.course_number
+                LIMIT 1
+            ) AS teaches,
             0 AS currentObservationCount
         FROM observation_requests ob_r
         JOIN professors p ON p.professor_id = ob_r.observer_id
+        JOIN meetings meet ON meet.meeting_id = ob_r.meeting_id
+        JOIN courses target ON target.course_id = meet.course_id
         WHERE ob_r.meeting_id = %s
+          AND EXISTS (
+              SELECT 1
+              FROM courses taught
+              WHERE taught.prof_id = ob_r.observer_id
+                AND taught.semester = target.semester
+                AND taught.department = target.department
+                AND CONCAT(SUBSTRING(taught.course_number, 1, 1), '000')
+                    = CONCAT(SUBSTRING(target.course_number, 1, 1), '000')
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM courses busy
+              WHERE busy.prof_id = ob_r.observer_id
+                AND busy.semester = target.semester
+                AND (
+                    (INSTR(target.course_day, 'M') > 0 AND INSTR(busy.course_day, 'M') > 0)
+                 OR (INSTR(target.course_day, 'T') > 0 AND INSTR(busy.course_day, 'T') > 0)
+                 OR (INSTR(target.course_day, 'W') > 0 AND INSTR(busy.course_day, 'W') > 0)
+                 OR (INSTR(target.course_day, 'R') > 0 AND INSTR(busy.course_day, 'R') > 0)
+                 OR (INSTR(target.course_day, 'F') > 0 AND INSTR(busy.course_day, 'F') > 0)
+                )
+                AND busy.course_start_time < target.course_end_time
+                AND busy.course_end_time > target.course_start_time
+          )
         """,
         (selected[0]["meeting_id"],)
     )
@@ -561,6 +762,7 @@ def get_accepted_observers():
 
 
 @app.route("/api/observers/request", methods=["POST"])
+@faculty_required
 def send_observer_requests():
     data = request.get_json(silent=True) or {}
     signup_semester = str(data.get("signup_semester") or "").strip()
@@ -574,6 +776,8 @@ def send_observer_requests():
         observer_ids = [int(observer_id) for observer_id in raw_observer_ids]
     except (TypeError, ValueError):
         return jsonify(error="observee_id and observer_ids must be integers"), 400
+    if observee_id != g.user_id:
+        return jsonify(error="You may only send requests for your own sign-up"), 403
 
     selected = query(
         """
@@ -609,56 +813,81 @@ def send_observer_requests():
                 sent_ids.append(observer_id)
             else:
                 skipped.append(observer_id)
-        return sent_ids, skipped
+        if not sent_ids:
+            return sent_ids, skipped, [], ""
 
-    sent_ids, skipped = transaction(mark_pending)
+        placeholders = ", ".join(["%s"] * len(sent_ids))
+        cur.execute(
+            f"""
+            SELECT p.professor_id AS observer_id, p.professor_name, u.email
+            FROM professors p
+            JOIN users u ON u.id = p.professor_id
+            WHERE p.professor_id IN ({placeholders})
+            """,
+            tuple(sent_ids),
+        )
+        recipients = cur.fetchall()
+        cur.execute(
+            "SELECT professor_name FROM professors WHERE professor_id = %s",
+            (observee_id,),
+        )
+        observee = cur.fetchone()
+        observee_name = observee["professor_name"] if observee else "An observee"
+        cur.execute(
+            """
+            SELECT CONCAT(c.department, ' ', c.course_number, '.', c.section_number)
+                AS course_label
+            FROM meetings m
+            JOIN courses c ON c.course_id = m.course_id
+            WHERE m.meeting_id = %s
+            """,
+            (meeting_id,),
+        )
+        course_row = cur.fetchone()
+        course = course_row["course_label"] if course_row else "class"
+        message = (
+            f"{observee_name} asked you to observe their {course} class for "
+            f"{signup_semester}. In the sidebar, go to Observer > Observe Others "
+            "to review the proposed dates and respond within 48 hours."
+        )
+        insert_notifications(
+            cur,
+            sent_ids,
+            f"Observation request — {signup_semester}",
+            message,
+            observee_id,
+        )
+        return sent_ids, skipped, recipients, message
+
+    sent_ids, skipped, recipients, message = transaction(mark_pending)
     if not sent_ids:
         return jsonify(
             error="None of the selected observers can be requested",
             skipped=skipped,
         ), 409
 
-    placeholders = ", ".join(["%s"] * len(sent_ids))
-    recipients = query(
-        f"""
-        SELECT p.professor_id AS observer_id, p.professor_name, u.email
-        FROM professors p
-        JOIN users u ON u.id = p.professor_id
-        WHERE p.professor_id IN ({placeholders})
-        """,
-        tuple(sent_ids),
-    )
-    observee_rows = query(
-        "SELECT professor_name FROM professors WHERE professor_id = %s",
-        (observee_id,),
-    )
-    observee_name = observee_rows[0]["professor_name"] if observee_rows else "An observee"
-    message = (
-        f"{observee_name} asked you to observe their class for {signup_semester}. "
-        "Log in to Assessment Helper to respond. The request expires after 48 hours."
-    )
-
-    email_error = None
+    email_errors = []
     sent = []
-    for recipient in recipients:
-        notified = False
-        if recipient["email"]:
-            try:
-                send_email(
-                    recipient["email"],
-                    message,
-                    to_name=recipient["professor_name"] or "",
-                )
-                notified = True
-            except EmailServiceError as exc:
-                email_error = str(exc)
+    for index, recipient in enumerate(recipients):
+        if index:
+            time.sleep(EMAILJS_RATE_LIMIT_SECONDS)
+        email_result = send_notification_email(
+            recipient["email"], message, name=recipient["professor_name"] or ""
+        )
+        if email_result["email_error"]:
+            email_errors.append(email_result["email_error"])
         sent.append({
             "observer_id": recipient["observer_id"],
             "professor_name": recipient["professor_name"],
-            "notified": notified,
+            "notified": email_result["email_sent"],
         })
 
-    return jsonify(sent=sent, skipped=skipped, emailError=email_error)
+    return jsonify(
+        sent=sent,
+        skipped=skipped,
+        notificationCount=len(recipients),
+        emailError="; ".join(dict.fromkeys(email_errors)) or None,
+    )
 
 
 MAX_CONFIRMED_OBSERVATIONS = 3
@@ -668,6 +897,47 @@ class ObservationRuleError(Exception):
     def __init__(self, message, status_code):
         super().__init__(message)
         self.status_code = status_code
+
+
+def _upcoming_class_dates(course_day, count=3):
+    """The next class meetings, including today, so an observer has dates to choose."""
+    weekdays = {
+        "M": 0,
+        "T": 1,
+        "W": 2,
+        "R": 3,
+        "F": 4,
+    }
+    token = (course_day or "").strip().upper().replace("TH", "R")
+    meeting_days = [weekdays[char] for char in token if char in weekdays]
+    if not meeting_days:
+        return []
+
+    found = []
+    current = date.today()
+    for _ in range(28):
+        if current.weekday() in meeting_days:
+            found.append(current)
+            if len(found) == count:
+                break
+        current += timedelta(days=1)
+    return found
+
+
+def _offered_dates_for_request(observee_id, signup_semester, course_day, existing):
+    if existing:
+        return existing
+    upcoming = _upcoming_class_dates(course_day)
+    for offered in upcoming:
+        query(
+            """
+            INSERT IGNORE INTO signup_dates (observee_id, signup_sem, offered_date)
+            VALUES (%s, %s, %s)
+            """,
+            (observee_id, signup_semester, offered),
+            fetch=False,
+        )
+    return [offered.isoformat() for offered in upcoming]
 
 
 def _iso_date(value):
@@ -771,6 +1041,19 @@ def _load_observer_requests(observer_id):
     for date_row in date_rows:
         key = (date_row["observee_id"], date_row["signup_sem"])
         dates_by_signup.setdefault(key, []).append(_iso_date(date_row["offered_date"]))
+
+    for row in rows:
+        if row["status"] != "pending":
+            continue
+        key = (row["observee_id"], row["signup_sem"])
+        if dates_by_signup.get(key):
+            continue
+        dates_by_signup[key] = _offered_dates_for_request(
+            row["observee_id"],
+            row["signup_sem"],
+            row["course_day"],
+            [],
+        )
 
     return [
         _observer_request_record(
@@ -915,15 +1198,68 @@ def accept_observer_request(meeting_id):
         if cur.rowcount != 1:
             raise ObservationRuleError("This request is no longer pending", 409)
 
+        cur.execute(
+            """
+            SELECT o.observee_id, o.signup_sem,
+                   p.professor_name AS observee_name, u.email
+            FROM meetings m
+            JOIN observees o ON o.signup_course = m.course_id
+            JOIN professors p ON p.professor_id = o.observee_id
+            JOIN users u ON u.id = o.observee_id
+            WHERE m.meeting_id = %s AND o.signup_sem = %s
+            """,
+            (meeting_id, current["signup_sem"]),
+        )
+        observee = cur.fetchone()
+        if observee is None:
+            raise ObservationRuleError("Observee account was not found", 404)
+        cur.execute(
+            """
+            SELECT CONCAT(c.department, ' ', c.course_number, '.', c.section_number)
+                AS course_label
+            FROM meetings m
+            JOIN courses c ON c.course_id = m.course_id
+            WHERE m.meeting_id = %s
+            """,
+            (meeting_id,),
+        )
+        course_row = cur.fetchone()
+        course = course_row["course_label"] if course_row else "class"
+        message = (
+            f"An observer accepted your request for {course} ({current['signup_sem']}) "
+            f"on {selected_date}. In the sidebar, go to Observee > My Observer "
+            "to confirm the observer."
+        )
+        insert_notifications(
+            cur,
+            [observee["observee_id"]],
+            f"Observer accepted — {current['signup_sem']}",
+            message,
+            g.user_id,
+        )
+        return {
+            "email": observee["email"],
+            "name": observee["observee_name"] or "",
+            "message": message,
+        }
+
     try:
-        transaction(schedule_acceptance)
+        notification = transaction(schedule_acceptance)
     except ObservationRuleError as exc:
         return jsonify(error=str(exc)), exc.status_code
 
+    email_result = send_notification_email(
+        notification["email"],
+        notification["message"],
+        name=notification["name"],
+    )
     return jsonify(
         meeting_id=meeting_id,
         status="accepted",
         selected_date=selected_date,
+        notificationSent=True,
+        emailSent=email_result["email_sent"],
+        emailError=email_result["email_error"],
     )
 
 
@@ -1047,6 +1383,68 @@ def confirm_observer():
 
         cur.execute(
             """
+            SELECT p.professor_name, u.email
+            FROM professors p
+            JOIN users u ON u.id = p.professor_id
+            WHERE p.professor_id = %s
+            """,
+            (observer_id,),
+        )
+        selected_observer = cur.fetchone()
+        if selected_observer is None:
+            raise ObservationRuleError("Observer account was not found", 404)
+
+        cur.execute(
+            """
+            SELECT r.observer_id, p.professor_name, u.email
+            FROM observation_requests r
+            JOIN professors p ON p.professor_id = r.observer_id
+            JOIN users u ON u.id = r.observer_id
+            WHERE r.meeting_id = %s
+              AND r.observer_id <> %s
+              AND r.sent_at IS NOT NULL
+            """,
+            (meeting_id, observer_id),
+        )
+        not_selected_observers = cur.fetchall()
+        cur.execute(
+            """
+            SELECT CONCAT(c.department, ' ', c.course_number, '.', c.section_number)
+                AS course_label
+            FROM meetings m
+            JOIN courses c ON c.course_id = m.course_id
+            WHERE m.meeting_id = %s
+            """,
+            (meeting_id,),
+        )
+        course_row = cur.fetchone()
+        course = course_row["course_label"] if course_row else "class"
+        selected_message = (
+            f"You were confirmed as the observer for {course} ({signup_semester}) "
+            f"on {_iso_date(request_row['selected_date'])}. In the sidebar, go to "
+            "My Schedule to view the observation details."
+        )
+        insert_notifications(
+            cur,
+            [observer_id],
+            f"Observer confirmed — {signup_semester}",
+            selected_message,
+            g.user_id,
+        )
+        rejected_message = (
+            f"The observee selected another observer for {course} ({signup_semester}). "
+            "Thank you for responding to the request."
+        )
+        insert_notifications(
+            cur,
+            [row["observer_id"] for row in not_selected_observers],
+            f"Observation request not selected — {signup_semester}",
+            rejected_message,
+            g.user_id,
+        )
+
+        cur.execute(
+            """
             UPDATE meetings
             SET observer_id = %s, meeting_date = %s
             WHERE meeting_id = %s AND observer_id IS NULL
@@ -1077,19 +1475,186 @@ def confirm_observer():
             """,
             (meeting_id, observer_id),
         )
-        return _iso_date(request_row["selected_date"])
+        return {
+            "selected_date": _iso_date(request_row["selected_date"]),
+            "emails": [
+                {
+                    "email": selected_observer["email"],
+                    "name": selected_observer["professor_name"] or "",
+                    "message": selected_message,
+                },
+                *[
+                    {
+                        "email": row["email"],
+                        "name": row["professor_name"] or "",
+                        "message": rejected_message,
+                    }
+                    for row in not_selected_observers
+                ],
+            ],
+        }
 
     try:
-        selected_date = transaction(schedule_confirmation)
+        confirmation = transaction(schedule_confirmation)
     except ObservationRuleError as exc:
         return jsonify(error=str(exc)), exc.status_code
     except IntegrityError:
         return jsonify(error="That observer cannot be scheduled"), 409
 
+    email_errors = []
+    for index, recipient in enumerate(confirmation["emails"]):
+        if index:
+            time.sleep(EMAILJS_RATE_LIMIT_SECONDS)
+        email_result = send_notification_email(
+            recipient["email"],
+            recipient["message"],
+            name=recipient["name"],
+        )
+        if email_result["email_error"]:
+            email_errors.append(email_result["email_error"])
+
     return jsonify(
         observer_id=observer_id,
         status="confirmed",
-        selected_date=selected_date,
+        selected_date=confirmation["selected_date"],
+        notifiedCount=len(confirmation["emails"]),
+        emailError="; ".join(dict.fromkeys(email_errors)) or None,
+    )
+
+
+@app.route("/api/observers/escalate", methods=["POST"])
+@faculty_required
+def escalate_observer_search():
+    data = request.get_json(silent=True) or {}
+    signup_semester = str(data.get("signup_semester") or "").strip()
+    if not signup_semester:
+        return jsonify(error="signup_semester is required"), 400
+
+    def create_escalation(cur):
+        cur.execute(
+            """
+            SELECT o.signup_course, p.professor_name
+            FROM observees o
+            JOIN professors p ON p.professor_id = o.observee_id
+            WHERE o.observee_id = %s AND o.signup_sem = %s
+            FOR UPDATE
+            """,
+            (g.user_id, signup_semester),
+        )
+        signup = cur.fetchone()
+        if signup is None or signup["signup_course"] is None:
+            raise ObservationRuleError("No sign-up was found for this semester", 404)
+
+        cur.execute(
+            "SELECT meeting_id FROM meetings WHERE course_id = %s ORDER BY meeting_id LIMIT 1",
+            (signup["signup_course"],),
+        )
+        meeting = cur.fetchone()
+        if meeting is None:
+            raise ObservationRuleError("No observation requests were found", 409)
+
+        cur.execute(
+            """
+            SELECT CONCAT(department, ' ', course_number, '.', section_number)
+                AS course_label
+            FROM courses
+            WHERE course_id = %s
+            """,
+            (signup["signup_course"],),
+        )
+        course = cur.fetchone()
+        course_label = course["course_label"] if course else "the course"
+
+        cur.execute(
+            """
+            UPDATE observation_requests
+            SET status = 'expired'
+            WHERE meeting_id = %s AND status = 'pending'
+              AND sent_at IS NOT NULL
+              AND sent_at < NOW() - INTERVAL 48 HOUR
+            """,
+            (meeting["meeting_id"],),
+        )
+        cur.execute(
+            """
+            SELECT observer_id, status
+            FROM observation_requests
+            WHERE meeting_id = %s AND sent_at IS NOT NULL
+              AND status IN ('pending', 'accepted', 'declined', 'expired')
+            FOR UPDATE
+            """,
+            (meeting["meeting_id"],),
+        )
+        invitations = cur.fetchall()
+        if not invitations:
+            raise ObservationRuleError("No observer requests have been sent", 409)
+        if any(row["status"] not in ("declined", "expired") for row in invitations):
+            raise ObservationRuleError(
+                "Wait until every invited observer declines or their request expires",
+                409,
+            )
+
+        cur.execute(
+            """
+            SELECT ac.ac_id AS user_id, p.professor_name AS name, u.email
+            FROM assessment_committee ac
+            JOIN professors p ON p.professor_id = ac.ac_id
+            JOIN users u ON u.id = ac.ac_id
+            WHERE u.is_active = TRUE
+            ORDER BY p.professor_name
+            """
+        )
+        recipients = cur.fetchall()
+        if not recipients:
+            raise ObservationRuleError("No active Assessment Committee members were found", 409)
+
+        message = (
+            f"All invited observers have declined or their requests expired for "
+            f"{signup_semester}. {signup['professor_name']} is requesting help "
+            f"finding additional observers for {course_label}."
+        )
+        cur.execute(
+            """
+            INSERT INTO observer_escalations (observee_id, signup_sem)
+            VALUES (%s, %s)
+            """,
+            (g.user_id, signup_semester),
+        )
+        insert_notifications(
+            cur,
+            [row["user_id"] for row in recipients],
+            f"Additional observers requested — {signup_semester}",
+            message,
+            g.user_id,
+        )
+        return {"recipients": recipients, "message": message}
+
+    try:
+        escalation = transaction(create_escalation)
+    except ObservationRuleError as exc:
+        return jsonify(error=str(exc)), exc.status_code
+    except IntegrityError:
+        return jsonify(error="The Assessment Committee has already been notified"), 409
+
+    email_errors = []
+    sent_count = 0
+    for index, recipient in enumerate(escalation["recipients"]):
+        if index:
+            time.sleep(EMAILJS_RATE_LIMIT_SECONDS)
+        email_result = send_notification_email(
+            recipient["email"],
+            escalation["message"],
+            name=recipient["name"] or "",
+        )
+        if email_result["email_sent"]:
+            sent_count += 1
+        if email_result["email_error"]:
+            email_errors.append(email_result["email_error"])
+
+    return jsonify(
+        notifiedCount=len(escalation["recipients"]),
+        emailSentCount=sent_count,
+        emailError="; ".join(dict.fromkeys(email_errors)) or None,
     )
 
 
@@ -1256,6 +1821,15 @@ def get_faculty_schedule():
     })
     
 
+def _clock_text(value):
+    if value is None:
+        return None
+    if hasattr(value, "total_seconds"):
+        total = int(value.total_seconds())
+        return f"{total // 3600:02d}:{(total % 3600) // 60:02d}:00"
+    return str(value)
+
+
 @app.route("/api/faculty/courses")
 @faculty_required
 def get_faculty_courses():
@@ -1271,6 +1845,7 @@ def get_faculty_courses():
             course_number,
             section_number,
             course_name,
+            semester,
             course_day,
             course_start_time,
             course_end_time,
@@ -1281,7 +1856,21 @@ def get_faculty_courses():
         """,
         (g.user_id, semester),
     )
-    return jsonify({"semester": semester, "courses": rows})
+    return jsonify([
+        {
+            "course_id": row["course_id"],
+            "department": row["department"],
+            "course_number": row["course_number"],
+            "section_number": row["section_number"],
+            "course_name": row["course_name"],
+            "semester": row["semester"],
+            "course_day": row["course_day"],
+            "course_start_time": _clock_text(row["course_start_time"]),
+            "course_end_time": _clock_text(row["course_end_time"]),
+            "room_number": row["room_number"],
+        }
+        for row in rows
+    ])
 
 
 @app.route("/api/health")

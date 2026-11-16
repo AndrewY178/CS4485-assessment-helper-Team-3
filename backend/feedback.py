@@ -119,4 +119,12 @@ def get_feedback_breakdown():
         """,
         (semester,),
     )
-    return jsonify(semester=semester, counts=rows[0])
+    counts = rows[0] or {}
+    return jsonify(
+        semester=semester,
+        counts={
+            "yes": int(counts.get("yes") or 0),
+            "mostly": int(counts.get("mostly") or 0),
+            "no": int(counts.get("no") or 0),
+        },
+    )

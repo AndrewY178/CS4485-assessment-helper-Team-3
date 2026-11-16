@@ -92,23 +92,93 @@ export interface ApiErrorResponse {
 }
 
 // GET /api/kpis
-// Used by: stats (StatCard)
-// Send numbers, not display strings. The frontend formats "14 of 24".
-export interface KpisResponse {
-  dueThisSemester: number
-  overdue: number
+// Used by the AC dashboard stats and the cycle KPI report.
+export interface CycleKpis {
+  cycle: string
+  due: number
   signedUp: number
-  totalFaculty: number
-  unmatchedFaculty: number
+  participationRate: number | null
+  overdue: number
+  unmatched: number
+  eligibility: {
+    eligible: number
+    total: number
+    rate: number | null
+    sameProfessor: number
+    otherDepartment: number
+    differentLevel: number
+    scheduleConflict: number
+  }
+  observerUtilization: {
+    observed: number
+    signedUp: number
+    rate: number | null
+  }
+  listSufficiency: {
+    matches: number
+    signups: number
+    average: number | null
+  }
+  missingObservations: number
+  outstandingReports: number
+  didNotGoThrough: number
+  survey: {
+    completed: number
+    reachedSurvey: number
+    rate: number | null
+    surveysStored: boolean
+  }
+  byRank: Array<{
+    rank: string
+    due: number
+    signedUp: number
+    rate: number | null
+  }>
+}
+
+export interface KpisResponse {
+  cycles: CycleKpis[]
+}
+
+// GET /api/dashboard
+export interface DashboardStep {
+  title: string
+  date: string | null
+  subtitle: string | null
+  status: 'done' | 'current' | 'upcoming'
+}
+
+export interface DashboardHireLevel {
+  hireLevel: string
+  cycle: string
+  due: number
+  overdue: number
+  outstanding: number
+}
+
+export interface DashboardAlert {
+  professorName: string
+  course: string | null
+  courseDay: string | null
+  courseStartTime: string | null
+  courseEndTime: string | null
+}
+
+export interface DashboardResponse {
+  cycle: string | null
+  steps: DashboardStep[]
+  hireLevels: DashboardHireLevel[]
+  alerts: DashboardAlert[]
 }
 
 // GET /api/users
 // Used by: hireLevelRows (HireLevelTable), grouped by hireLevel on the frontend
+
 export interface UserResponse {
   id: string
   name: string
   username: string
-  prof_rank: string // this is hireLevel
+  prof_rank: string | null // this is hireLevel
   department: string
   last_sem_observed: string | null
   hiring_sem: string | null
@@ -139,6 +209,49 @@ export type ObserveeStatus =
   | 'invitations_sent'
   | 'manual'
 
+// GET /api/cycles/deadline
+export interface CycleDeadlineResponse {
+  signup_deadline: string
+  observation_deadline: string | null
+  days_remaining: number
+  is_past: boolean
+}
+
+export interface SaveCycleDeadlineRequest {
+  semester: string
+  signup_deadline: string
+  observation_deadline: string
+}
+
+export interface FacultyCourse {
+  course_id: number
+  department: string
+  course_number: string
+  section_number: string
+  course_name: string
+  semester: string
+  course_day: string | null
+  course_start_time: string | null
+  course_end_time: string | null
+  room_number: string | null
+}
+
+// GET /api/observees/no-observers
+export interface NoObserverObservee {
+  observee_id: number
+  signup_sem: string
+  signup_course: number | null
+  status: string
+}
+
+// GET /api/observees/uncompleted
+export interface UncompletedObservee {
+  observee_id: number
+  signup_sem: string
+  meeting_date: string | null
+  uncompleted: boolean
+}
+
 export interface ObserveeResponse extends UserDetailResponse {
   signup_sem: string
   course_id: string | null
@@ -155,6 +268,16 @@ export interface ObserveeResponse extends UserDetailResponse {
 // POST/PUT /api/users/{id}
 // PROPOSED request: partial UserResponse fields
 export type UserUpdateRequest = Partial<Omit<UserResponse, 'id'>>
+
+// PUT /api/users/{id}/rank
+export interface UpdateProfessorRankRequest {
+  prof_rank: string
+}
+
+export interface UpdateProfessorRankResponse {
+  id: number
+  prof_rank: string
+}
 
 // GET /api/obs
 // Used by: Observer Selection rows
@@ -198,12 +321,15 @@ export interface ObserverCandidateResponse {
   currentObservationCount: number
   status?: string | null
   selected_date?: string | null
+  teaches?: string | null
 }
 
 export interface ConfirmObserverResponse {
   observer_id: number
   status: 'confirmed'
   selected_date: string | null
+  notifiedCount?: number
+  emailError?: string | null
 }
 
 export interface SendObserverRequestsResponse {
@@ -311,10 +437,31 @@ export interface GenerateObserverListsResponse {
 
 // ---------- Teacher (Observee + Observer) ----------
 
-// GET /api/users/{id}/obs
-// Used by: "Observations of me" and "Observations I give"
-// PROPOSED: returns ObservationResponse[]
-export type UserObservationsResponse = ObservationResponse[]
+// GET /api/my-observations
+// Past observations for the logged-in faculty member, as observee or observer.
+export interface PastObservation {
+  meetingId: number
+  meetingDate: string | null
+  observeeId: number
+  observeeName: string
+  observerId: number | null
+  observerName: string | null
+  courseCode: string | null
+  courseName: string | null
+  semester: string | null
+  reportExists: boolean
+  content_clarity: number | null
+  student_engagement: number | null
+  openness_to_questions: number | null
+  overall_comments: string | null
+  tech_use: number | null
+  slide_readability: number | null
+  lecture_pace: number | null
+}
+
+export interface PastObservationsResponse {
+  observations: PastObservation[]
+}
 
 // GET /api/invitations
 // Used by: "Observers assigned to me" / pending invitations

@@ -3,6 +3,7 @@ import {
   dismissNotification,
   getNotificationRecipients,
   getNotifications,
+  markNotificationsRead,
   sendNotification,
   type NotificationMessage,
   type NotificationRecipient,
@@ -49,6 +50,10 @@ export default function NotificationsPage() {
         if (!cancelled) {
           setNotifications(inbox)
           setRecipients(faculty)
+        }
+        if (!cancelled) {
+          await markNotificationsRead(token)
+          window.dispatchEvent(new Event('assessment-notifications-read'))
         }
       } catch (error) {
         if (!cancelled) {
@@ -126,6 +131,7 @@ export default function NotificationsPage() {
       setNotifications((current) =>
         current.filter((notification) => notification.id !== notificationId),
       )
+      window.dispatchEvent(new Event('assessment-notifications-read'))
     } catch (error) {
       setLoadError(
         error instanceof Error

@@ -3,6 +3,7 @@ export type TrackingStatus =
   | 'scheduled'
   | 'report-pending'
   | 'completed'
+  | 'canceled'
   | 'needs-attention'
 
 export interface TrackingRequestCounts {
@@ -11,6 +12,7 @@ export interface TrackingRequestCounts {
   accepted: number
   declined: number
   confirmed: number
+  canceled: number
   notSelected: number
   expired: number
 }

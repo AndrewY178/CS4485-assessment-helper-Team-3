@@ -16,10 +16,37 @@ CREATE TABLE notifications (
     title VARCHAR(150) NOT NULL,
     message TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP NULL DEFAULT NULL,
     dismissed_at TIMESTAMP NULL DEFAULT NULL,
     INDEX idx_notifications_inbox (recipient_id, dismissed_at, created_at),
+    INDEX idx_notifications_unread (recipient_id, read_at, dismissed_at),
     FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE observer_escalations (
+    observee_id INT NOT NULL,
+    signup_sem VARCHAR(50) NOT NULL,
+    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (observee_id, signup_sem),
+    FOREIGN KEY (observee_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE deadline_notification_deliveries (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    semester VARCHAR(50) NOT NULL,
+    recipient_id INT NOT NULL,
+    reminder_key VARCHAR(40) NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    email_sent_at TIMESTAMP NULL DEFAULT NULL,
+    email_attempts INT NOT NULL DEFAULT 0,
+    last_email_attempt_at TIMESTAMP NULL DEFAULT NULL,
+    last_email_error TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_deadline_delivery (semester, recipient_id, reminder_key),
+    INDEX idx_deadline_delivery_pending (email_sent_at, created_at),
+    FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE professors (
@@ -135,9 +162,10 @@ CREATE TABLE observation_requests (
     -- accepted     observer accepted and picked a date (selected_date)
     -- declined     observer declined
     -- confirmed    observee chose this observer (meetings.observer_id and meeting_date are set)
+    -- canceled     observee canceled before the observer signed
     -- not_selected observee chose a different observer
     -- expired      no answer within 48 hours
-    status ENUM('generated','approved', 'pending', 'accepted', 'declined', 'confirmed', 'not_selected', 'expired')
+    status ENUM('generated','approved', 'pending', 'accepted', 'declined', 'confirmed', 'canceled', 'not_selected', 'expired')
         NOT NULL DEFAULT 'approved',
     selected_date DATE, -- one of the observee's offered dates (signup_dates), set when accepting
     sent_at DATETIME,
@@ -148,19 +176,19 @@ CREATE TABLE observation_requests (
 );
 
 -- WARN: I think this is not needed anymore
--- CREATE TABLE reports (
---     meeting_id INT PRIMARY KEY,
+CREATE TABLE reports (
+    meeting_id INT PRIMARY KEY,
 
---     content_clarity INT NOT NULL CHECK (content_clarity BETWEEN 1 AND 5),
---     student_engagement INT NOT NULL CHECK (student_engagement BETWEEN 1 AND 5),
---     openness_to_questions INT NOT NULL CHECK (openness_to_questions BETWEEN 1 AND 5),
---     overall_comments TEXT,
---     tech_use INT NOT NULL CHECK (tech_use BETWEEN 1 AND 5),
---     slide_readability INT NOT NULL CHECK (slide_readability BETWEEN 1 AND 5),
---     lecture_pace INT NOT NULL CHECK (lecture_pace BETWEEN 1 AND 5),
+    content_clarity INT NOT NULL CHECK (content_clarity BETWEEN 1 AND 5),
+    student_engagement INT NOT NULL CHECK (student_engagement BETWEEN 1 AND 5),
+    openness_to_questions INT NOT NULL CHECK (openness_to_questions BETWEEN 1 AND 5),
+    overall_comments TEXT,
+    tech_use INT NOT NULL CHECK (tech_use BETWEEN 1 AND 5),
+    slide_readability INT NOT NULL CHECK (slide_readability BETWEEN 1 AND 5),
+    lecture_pace INT NOT NULL CHECK (lecture_pace BETWEEN 1 AND 5),
 
---     FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
--- );
+    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
+);
 
 
 CREATE TABLE evaluation_form_versions (
@@ -205,22 +233,6 @@ CREATE TABLE form_questions (
         REFERENCES evaluation_form_versions(version_id)
 );
 
--- DONT THINK WE NEED THIS SINCE WE DON"T NEED OPTIONS.
--- CREATE TABLE form_question_options (
---     option_id INT AUTO_INCREMENT PRIMARY KEY,
---     question_id INT NOT NULL,
---     option_value INT NOT NULL,
---     option_label VARCHAR(150) NOT NULL,
---     display_order INT NOT NULL,
-
---     UNIQUE (question_id, option_value),
-
---     CHECK (display_order >= 0),
-
---     FOREIGN KEY (question_id)
---         REFERENCES form_questions(question_id)
--- );
-
 
 CREATE TABLE evaluations (
     evaluation_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -232,13 +244,22 @@ CREATE TABLE evaluations (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
     submitted_at TIMESTAMP NULL DEFAULT NULL,
+    observer_signed_by INT NULL,
+    observer_signature_name VARCHAR(100) NULL,
+    observer_signed_at DATETIME NULL,
+    observee_signed_by INT NULL,
+    observee_signature_name VARCHAR(100) NULL,
+    observee_signed_at DATETIME NULL,
+    observee_response TEXT NULL,
 
     UNIQUE (evaluation_id, version_id),
 
     FOREIGN KEY (meeting_id)
         REFERENCES meetings(meeting_id),
     FOREIGN KEY (version_id)
-        REFERENCES evaluation_form_versions(version_id)
+        REFERENCES evaluation_form_versions(version_id),
+    FOREIGN KEY (observer_signed_by) REFERENCES users(id),
+    FOREIGN KEY (observee_signed_by) REFERENCES users(id)
 );
 
 
