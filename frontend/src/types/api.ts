@@ -19,6 +19,7 @@ export interface LoginResponse {
   role: Role | null // first role the person holds (null if none), have frontend ignore this
   roles: Role[] // all roles the person holds 
   userId: string
+  name: string
 }
 
 // POST /api/auth/logout

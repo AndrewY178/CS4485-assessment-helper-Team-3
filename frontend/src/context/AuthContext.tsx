@@ -20,13 +20,14 @@ interface Session {
   token: string
   roles: Role[]
   userId: string
+  name: string
 }
 
 interface AuthContextValue {
+  name: string | null
   roles: Role[]
   token: string | null
   userId: string | null
-  token: string | null
   // rejects with an ApiError (its message is safe to show to the user)
   login: (email: string, password: string) => Promise<Role[]>
   logout: () => Promise<void>
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token: response.token,
       roles: response.roles,
       userId: response.userId,
+      name: response.name,
     }
     saveSession(next)
     setSession(next)
@@ -110,10 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
+      name: session?.name ?? null,
       roles: session?.roles ?? [],
       token: session?.token ?? null,
       userId: session?.userId ?? null,
-      token: session?.token ?? null,
       login,
       logout,
       switchRoleForTesting,

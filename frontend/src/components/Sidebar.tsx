@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useAuth, useLogout } from '../context/AuthContext'
-import { AppLink, useNavigation } from '../context/NavigationContext'
+import { AppLink } from '../context/NavigationContext'
 
 const acNavItems = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -74,19 +74,12 @@ function FacultyGroup({
 }
 
 export default function Sidebar() {
-  const { roles, switchRoleForTesting } = useAuth()
+  const { name, roles } = useAuth()
   const logout = useLogout()
-  const { navigate } = useNavigation()
   const isACMember = roles.includes('AC Member')
   const isFaculty = roles.includes('Faculty') && !isACMember
   const [observerOpen, setObserverOpen] = useState(true)
   const [observeeOpen, setObserveeOpen] = useState(true)
-
-  function handleRoleSwitch() {
-    const nextRole = isACMember ? 'Faculty' : 'AC Member'
-    switchRoleForTesting(nextRole)
-    navigate(nextRole === 'AC Member' ? '/dashboard' : '/faculty/status')
-  }
 
   return (
     <aside className="sidebar">
@@ -153,17 +146,8 @@ export default function Sidebar() {
 
       <div className="sidebar__account">
         <span className="sidebar__role">
-          {isACMember ? 'AC Member' : 'Faculty'}
+          {name ?? 'Account'}
         </span>
-        {import.meta.env.DEV && (
-          <button
-            className="sidebar__role-switch"
-            onClick={handleRoleSwitch}
-            type="button"
-          >
-            Switch to {isACMember ? 'Faculty' : 'AC Member'}
-          </button>
-        )}
         <button className="sidebar__logout" onClick={logout} type="button">
           Log out
         </button>
