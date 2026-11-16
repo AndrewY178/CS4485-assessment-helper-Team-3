@@ -390,6 +390,16 @@ WHERE o.signup_course IS NOT NULL
       FROM meetings m
       WHERE m.course_id = o.signup_course
   );
+
+-- add evaluation cycle data for Fall 2026
+INSERT INTO evaluation_cycles (semester, cycle_status, signup_deadline, observation_deadline, feedback_deadline)
+VALUES (
+    'Fall 2026',
+    'draft',
+    '2026-09-15 23:59:59',
+    '2026-12-15 23:59:59',
+    '2026-12-20 23:59:59'
+);
           
 -- ---------------------------------------------------------------------------
 -- Sample data for the observer request flow (accept / reject)

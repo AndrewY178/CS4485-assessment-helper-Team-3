@@ -3,12 +3,13 @@
 import os
 import time
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, g, jsonify
 
 from api_helpers import error
 from auth import ac_required
 from db import query
 from emailservice import EmailServiceError, send_email
+from notifications import create_notification
 
 reminders_bp = Blueprint("reminders", __name__)
 
@@ -136,6 +137,10 @@ def _reminder_message(candidate, *, test_mode, app_url):
     )
 
 
+def _notification_title(candidate):
+    return f"Evaluation {candidate['status'].lower()} — {candidate['cycle']}"
+
+
 @reminders_bp.post("/api/reminders")
 @ac_required
 def send_reminders():
@@ -144,7 +149,12 @@ def send_reminders():
     try:
         candidates = _reminder_candidates()
         if not candidates:
-            return jsonify(sentCount=0, recipientCount=0, testMode=False)
+            return jsonify(
+                sentCount=0,
+                recipientCount=0,
+                notificationCount=0,
+                testMode=False,
+            )
 
         test_mode = _in_test_mode()
         test_recipient = (
@@ -159,29 +169,54 @@ def send_reminders():
             )
         app_url = (os.getenv("FRONTEND_URL") or "http://localhost:5173").rstrip("/")
         template_id = os.getenv("EMAILJS_REMINDER_TEMPLATE_ID") or None
-        template_id = os.getenv("EMAILJS_REMINDER_TEMPLATE_ID") or None
+        # Reminder content differs by recipient, so notifications are inserted
+        # individually after the recipient list is known.
+        notification_count = 0
         for candidate in candidates:
-            if sent_count:
-                time.sleep(EMAILJS_RATE_LIMIT_SECONDS)
-            send_email(
-                test_recipient if test_mode else candidate["email"],
-                _reminder_message(candidate, test_mode=test_mode, app_url=app_url),
-                to_name=candidate["name"],
-                template_id=template_id,
+            notification_count += create_notification(
+                candidate["user_id"],
+                _notification_title(candidate),
+                _reminder_message(candidate, test_mode=False, app_url=app_url),
+                g.user_id,
             )
-            sent_count += 1
-    except EmailServiceError as exc:
-        if sent_count:
-            return error(
-                f"Email delivery stopped after {sent_count} of "
-                f"{len(candidates)} reminders. Review delivered emails before "
-                "retrying.",
+        email_failures = 0
+        for index, candidate in enumerate(candidates):
+            if index:
+                time.sleep(EMAILJS_RATE_LIMIT_SECONDS)
+            try:
+                send_email(
+                    test_recipient if test_mode else candidate["email"],
+                    _reminder_message(
+                        candidate, test_mode=test_mode, app_url=app_url
+                    ),
+                    to_name=candidate["name"],
+                    template_id=template_id,
+                )
+                sent_count += 1
+            except EmailServiceError:
+                email_failures += 1
+
+        if email_failures:
+            return (
+                jsonify(
+                    error=(
+                        f"Created {notification_count} in-app notifications; "
+                        f"{sent_count} of {len(candidates)} email reminders "
+                        "were sent. Check EmailJS configuration and logs."
+                    ),
+                    sentCount=sent_count,
+                    recipientCount=len(candidates),
+                    notificationCount=notification_count,
+                    testMode=test_mode,
+                ),
                 502,
             )
+    except EmailServiceError as exc:
         return error(str(exc), 502)
 
     return jsonify(
         sentCount=sent_count,
         recipientCount=len(candidates),
+        notificationCount=notification_count,
         testMode=test_mode,
     )
