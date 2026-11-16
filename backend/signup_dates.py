@@ -28,7 +28,7 @@ def _parse_dates(raw_dates):
             parsed.add(date.fromisoformat(raw))
         except (TypeError, ValueError):
             return None
-    if any(d <= date.today() for d in parsed):
+    if any(d < date.today() for d in parsed):
         return None
     return sorted(parsed)
 
@@ -92,7 +92,7 @@ def save_signup_dates():
         return error("signup_semester is required", 400)
     dates = _parse_dates(body.get("dates"))
     if dates is None:
-        return error("dates must be a list of future dates", 400)
+        return error("dates must be today or a later day", 400)
     raw_course_id = body.get("course_id")
     try:
         course_id = int(raw_course_id)

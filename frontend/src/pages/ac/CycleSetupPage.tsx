@@ -35,31 +35,34 @@ function cycleToForm(record: EvaluationCycleResponse): SaveEvaluationCycleReques
 
 function validateDeadlines(values: SaveEvaluationCycleRequest) {
   const errors: DeadlineErrors = {}
-  const entries: Array<[DeadlineKey, string]> = [
-    ['signupDeadline', values.signupDeadline],
-    ['observationDeadline', values.observationDeadline],
-    ['feedbackDeadline', values.feedbackDeadline],
-  ]
 
-  entries.forEach(([key, value]) => {
+  ;(['signupDeadline', 'observationDeadline'] as DeadlineKey[]).forEach((key) => {
+    const value = values[key]
     if (!value) errors[key] = 'Select a date and time.'
     else if (Number.isNaN(new Date(value).getTime())) errors[key] = 'Enter a valid date and time.'
   })
+  if (values.feedbackDeadline && Number.isNaN(new Date(values.feedbackDeadline).getTime())) {
+    errors.feedbackDeadline = 'Enter a valid date and time.'
+  }
 
   if (Object.keys(errors).length > 0) return errors
 
   const signup = new Date(values.signupDeadline)
   const observation = new Date(values.observationDeadline)
-  const feedback = new Date(values.feedbackDeadline)
 
   if (signup >= observation) {
     errors.observationDeadline = 'Observation deadline must occur after sign-up closes.'
   }
-  if (observation >= feedback) {
+  if (values.feedbackDeadline && observation >= new Date(values.feedbackDeadline)) {
     errors.feedbackDeadline = 'Feedback deadline must occur after the observation deadline.'
   }
 
   return errors
+}
+
+function deadlineInput(value: string | null | undefined) {
+  if (!value) return ''
+  return `${value.slice(0, 10)}T23:59`
 }
 
 export default function CycleSetupPage() {
@@ -148,9 +151,34 @@ export default function CycleSetupPage() {
     const nextRecord = records.find((record) => record.semesterId === semesterId)
     if (!nextRecord) return
     setSelectedSemesterId(semesterId)
-    setForm(cycleToForm(nextRecord))
     setErrors({})
   }
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const semester = selectedRecord.cycle.semesterLabel
+    getCycleDeadline(semester, controller.signal)
+      .then((stored) => {
+        if (controller.signal.aborted) return
+        const next = {
+          signupDeadline: deadlineInput(stored.signup_deadline),
+          observationDeadline: deadlineInput(stored.observation_deadline),
+          feedbackDeadline: '',
+        }
+        setForm(next)
+        setServerForm(next)
+        setErrors({})
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return
+        const empty = { signupDeadline: '', observationDeadline: '', feedbackDeadline: '' }
+        setForm(empty)
+        setServerForm(empty)
+        if (error instanceof ApiError && error.status === 404) return
+        setNotice(error instanceof Error ? error.message : 'Deadlines could not be loaded.')
+      })
+    return () => controller.abort()
+  }, [selectedRecord.cycle.semesterLabel])
 
   function updateDeadline(key: DeadlineKey, value: string) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -168,7 +196,8 @@ export default function CycleSetupPage() {
   function requestSave() {
     const nextErrors = validateDeadlines(form)
     ;(['signupDeadline', 'observationDeadline', 'feedbackDeadline'] as DeadlineKey[]).forEach((key) => {
-      if (!isLocked(key) && form[key] && new Date(form[key]) <= new Date()) {
+      if (isLocked(key) || !form[key] || form[key] === serverForm[key]) return
+      if (new Date(form[key]) <= new Date()) {
         nextErrors[key] = 'Deadline must be in the future.'
       }
     })
@@ -187,6 +216,14 @@ export default function CycleSetupPage() {
         observationDeadline: new Date(form.observationDeadline).toISOString(),
         feedbackDeadline: new Date(form.feedbackDeadline).toISOString(),
       }, token)
+      await saveCycleDeadline(
+        {
+          semester: selectedRecord.cycle.semesterLabel,
+          signup_deadline: form.signupDeadline.slice(0, 10),
+          observation_deadline: form.observationDeadline.slice(0, 10),
+        },
+        token,
+      )
       setRecords((current) => current.map((record) => (
         record.semesterId === savedCycle.semesterId ? savedCycle : record
       )))
@@ -288,11 +325,11 @@ export default function CycleSetupPage() {
               value={form.observationDeadline}
             />
             <DeadlineField
-              disabled={isLocked('feedbackDeadline')}
+              disabled
               error={errors.feedbackDeadline}
-              helperText="Faculty feedback surveys close at this time."
+              helperText="Survey deadlines are not stored. Only the sign-up and observation dates are saved."
               id="feedback-deadline"
-              label="Feedback survey deadline"
+              label="Feedback survey (not saved yet)"
               onChange={(value) => updateDeadline('feedbackDeadline', value)}
               value={form.feedbackDeadline}
             />
@@ -307,7 +344,7 @@ export default function CycleSetupPage() {
               className="cycle-button cycle-button--secondary"
               disabled={!isDirty || isSaving}
               onClick={() => {
-                setForm(savedForm)
+                setForm(serverForm)
                 setErrors({})
               }}
               type="button"

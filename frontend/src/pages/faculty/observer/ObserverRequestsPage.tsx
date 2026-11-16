@@ -203,11 +203,14 @@ export default function ObserverRequestsPage() {
                     <fieldset className="request-date-picker">
                       <legend>Pick a date</legend>
                       <div className="request-date-options">
-                        {request.offered_dates.length === 0 && <p>—</p>}
+                        {request.offered_dates.length === 0 && (
+                          <p>No dates were offered for this request.</p>
+                        )}
                         {request.offered_dates.map((date) => (
                           <label
                             className={`date-option${selectedDate === date ? ' date-option--selected' : ''}`}
                             key={date}
+                            onClick={() => chooseDate(request.meeting_id, date)}
                           >
                             <input
                               checked={selectedDate === date}
