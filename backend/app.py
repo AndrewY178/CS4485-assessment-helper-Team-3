@@ -15,6 +15,7 @@ from observer_approval import observer_approval_bp
 from faculty_status import faculty_status_bp
 from current_semester import current_semester_bp
 from feedback import feedback_bp
+from templates import templates_bp
 from notifications import notifications_bp
 
 from db import query, pool, transaction
@@ -35,6 +36,7 @@ app.register_blueprint(cycle_setup_bp)
 app.register_blueprint(current_semester_bp)
 app.register_blueprint(faculty_status_bp)
 app.register_blueprint(feedback_bp)
+app.register_blueprint(templates_bp)
 app.register_blueprint(notifications_bp)
 
 # SQL statements

@@ -15,14 +15,13 @@ def semester_for_date(today=None):
         return f"Fall {today.year}"
     return None
 
-  
+
 def next_semester(semester):
     season, year_text = semester.split()
     year = int(year_text)
     if season == "Spring":
         return f"Fall {year}"
     return f"Spring {year + 1}"
-
 
 
 @current_semester_bp.get("/api/current-semester")

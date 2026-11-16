@@ -18,9 +18,19 @@ export interface TemplateCriterion {
 
 export interface ObservationTemplate {
   id: string
-  version: number
+  version: number | null
   status: TemplateStatus
   criteria: TemplateCriterion[]
   ratingScale: RatingOption[]
   effectiveSemester: string | null
+  isEditable?: boolean
+  isInheritedDraft?: boolean
+  signupDeadline?: string | null
+}
+
+export interface TemplateSemesterSummary {
+  semester: string
+  version: number | null
+  status: 'draft' | 'published' | 'retired'
+  isEditable: boolean
 }
