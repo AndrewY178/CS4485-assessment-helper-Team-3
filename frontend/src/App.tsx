@@ -19,6 +19,7 @@ import MyObservationPage from './pages/faculty/observee/MyObservationPage'
 import MyObserversPage from './pages/faculty/observee/MyObserversPage'
 import ObservationFormsPage from './pages/faculty/observer/ObservationFormsPage'
 import ObserverRequestsPage from './pages/faculty/observer/ObserverRequestsPage'
+import NotificationsPage from './pages/NotificationsPage'
 
 const loggedOutPaths = ['/login', '/forgot-password', '/reset-password']
 
@@ -42,6 +43,8 @@ const facultyPaths = [
   '/survey',
 ]
 
+const sharedPaths = ['/messages']
+
 export default function App() {
   const { roles } = useAuth()
   const loggedIn = roles.length > 0
@@ -63,7 +66,7 @@ export default function App() {
       navigate('/dashboard', { replace: true })
     } else if (
       loggedIn &&
-      ![...acPaths, ...facultyPaths, ...loggedOutPaths].includes(pathname)
+      ![...acPaths, ...facultyPaths, ...sharedPaths, ...loggedOutPaths].includes(pathname)
     ) {
       navigate(defaultPath, { replace: true })
     }
@@ -123,6 +126,9 @@ export default function App() {
       break
     case '/my-schedule':
       page = <MySchedulePage />
+      break
+    case '/messages':
+      page = <NotificationsPage />
       break
     case '/survey':
       page = <FeedbackSurveyPage />

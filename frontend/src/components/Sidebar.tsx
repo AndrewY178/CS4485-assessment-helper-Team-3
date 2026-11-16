@@ -103,6 +103,16 @@ export default function Sidebar() {
             </AppLink>
           ))}
 
+        {isACMember && (
+          <AppLink
+            activeClassName="sidebar__link--active"
+            className="sidebar__link"
+            to="/messages"
+          >
+            Messages
+          </AppLink>
+        )}
+
         {isFaculty && (
           <>
             <AppLink
@@ -111,6 +121,13 @@ export default function Sidebar() {
               to="/faculty/status"
             >
               My Status
+            </AppLink>
+            <AppLink
+              activeClassName="sidebar__link--active"
+              className="sidebar__link"
+              to="/messages"
+            >
+              Messages
             </AppLink>
             <AppLink
               activeClassName="sidebar__link--active"
@@ -148,6 +165,7 @@ export default function Sidebar() {
         <span className="sidebar__role">
           {name ?? 'Account'}
         </span>
+        
         <button className="sidebar__logout" onClick={logout} type="button">
           Log out
         </button>

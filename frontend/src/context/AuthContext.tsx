@@ -19,6 +19,7 @@ export type Role = 'AC Member' | 'Faculty'
 interface Session {
   token: string
   roles: Role[]
+  activeRole?: Role
   userId: string
   name: string
 }
@@ -26,7 +27,6 @@ interface Session {
 interface AuthContextValue {
   name: string | null
   roles: Role[]
-  token: string | null
   userId: string | null
   // rejects with an ApiError (its message is safe to show to the user)
   login: (email: string, password: string) => Promise<Role[]>
@@ -102,9 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!import.meta.env.DEV) return
 
     setSession((current) => {
-      if (!current) return current
+      if (!current || !current.roles.includes(role)) return current
 
-      const next: Session = { ...current, roles: [role] }
+      const next: Session = { ...current, activeRole: role }
       saveSession(next)
       return next
     })
