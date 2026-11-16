@@ -12,8 +12,11 @@ from emailservice import EmailServiceError, send_email
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
 from observer_approval import observer_approval_bp
+from faculty_status import faculty_status_bp
+from current_semester import current_semester_bp
 from feedback import feedback_bp
 from templates import templates_bp
+from notifications import notifications_bp
 
 from db import query, pool, transaction
 from datetime import datetime, timezone
@@ -29,10 +32,12 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(reminders_bp)
 app.register_blueprint(signup_dates_bp)
 app.register_blueprint(observer_approval_bp)
-app.register_blueprint(feedback_bp)
-app.register_blueprint(templates_bp)
 app.register_blueprint(cycle_setup_bp)
 app.register_blueprint(current_semester_bp)
+app.register_blueprint(faculty_status_bp)
+app.register_blueprint(feedback_bp)
+app.register_blueprint(templates_bp)
+app.register_blueprint(notifications_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
@@ -1241,6 +1246,34 @@ def get_faculty_schedule():
         ],
     })
     
+
+@app.route("/api/faculty/courses")
+@faculty_required
+def get_faculty_courses():
+    semester = request.args.get("semester", "").strip()
+    if not semester:
+        return jsonify(error="semester is required"), 400
+
+    rows = query(
+        """
+        SELECT
+            course_id,
+            department,
+            course_number,
+            section_number,
+            course_name,
+            course_day,
+            course_start_time,
+            course_end_time,
+            room_number
+        FROM courses
+        WHERE prof_id = %s AND semester = %s
+        ORDER BY course_number, section_number
+        """,
+        (g.user_id, semester),
+    )
+    return jsonify({"semester": semester, "courses": rows})
+
 
 @app.route("/api/health")
 def health():

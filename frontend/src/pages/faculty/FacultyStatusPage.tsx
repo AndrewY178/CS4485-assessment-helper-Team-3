@@ -1,24 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/auth'
-import { TEMPORARY_SCHEDULE_SEMESTER } from '../../api/schedule'
+import {
+  getFacultyCourses,
+  type FacultyCourse,
+} from '../../api/schedule'
+import { getFacultyStatus, type FacultyStatusResponse } from '../../api/facultyStatus'
 import { getSignupDates, saveSignupDates } from '../../api/signupDates'
 import { useAuth } from '../../context/AuthContext'
 import { AppLink } from '../../context/NavigationContext'
 
-const courses = [
-  {
-    id: 'cs-1337-002',
-    name: 'CS 1337.002 - Computer Science I',
-    schedule: 'MW 8:30-9:45 AM - ECSS 2.410',
-  },
-  {
-    id: 'cs-2336-001',
-    name: 'CS 2336.001 - Computer Science II',
-    schedule: 'TR 11:30 AM-12:45 PM - ECSW 1.315',
-  },
-]
-
-const initialDates = ['2026-11-03', '2026-11-05', '2026-11-10']
+const initialDates: string[] = []
 
 function formatDate(value: string) {
   const date = new Date(`${value}T12:00:00`)
@@ -28,8 +19,14 @@ function formatDate(value: string) {
   }).format(date)
 }
 
+function formatDeadline(value: string | null) {
+  return value ? formatDate(value.slice(0, 10)) : 'Not set'
+}
+
 export default function FacultyStatusPage() {
-  const [selectedCourse, setSelectedCourse] = useState(courses[0].id)
+  const [courses, setCourses] = useState<FacultyCourse[]>([])
+  const [status, setStatus] = useState<FacultyStatusResponse | null>(null)
+  const [selectedCourse, setSelectedCourse] = useState<number | null>(null)
   const [dates, setDates] = useState(initialDates)
   const [newDate, setNewDate] = useState('')
   const [notice, setNotice] = useState('')
@@ -41,16 +38,37 @@ export default function FacultyStatusPage() {
     if (!token) return
 
     const controller = new AbortController()
-    void getSignupDates(TEMPORARY_SCHEDULE_SEMESTER, token, controller.signal)
-      .then((saved) => {
-        if (controller.signal.aborted || saved.dates.length === 0) return
+    void getFacultyStatus(token, controller.signal)
+      .then((facultyStatus) => {
+        if (controller.signal.aborted) return null
+        setStatus(facultyStatus)
+        console.log("about to get stuff")
+        return Promise.all([
+          getFacultyCourses(facultyStatus.semester, token, controller.signal),
+          getSignupDates(facultyStatus.semester, token, controller.signal)
+          .catch((error: unknown) => {
+            if (error instanceof ApiError && error.status === 404) {
+              return { course_id: null, dates: [] }
+            }
+            throw error
+          })
+          ,
+        ])
+      })
+      .then((result) => {
+        if (!result || controller.signal.aborted) return
+
+        const [available, saved] = result
+        console.log(available)
+        if (controller.signal.aborted) return
+        setCourses(available.courses)
+        setSelectedCourse(saved.course_id)
         setDates(saved.dates)
         setSubmitted(true)
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
         // no sign-up yet (404) is expected, so only show other problems
-        if (error instanceof ApiError && error.status === 404) return
         setNotice(error instanceof Error ? error.message : 'Your saved dates could not be loaded.')
       })
 
@@ -65,7 +83,7 @@ export default function FacultyStatusPage() {
 
   async function submitSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selectedCourse) {
+    if (selectedCourse === null) {
       setNotice('Choose a course before submitting your sign-up.')
       return
     }
@@ -78,7 +96,11 @@ export default function FacultyStatusPage() {
       return
     }
     try {
-      const saved = await saveSignupDates(TEMPORARY_SCHEDULE_SEMESTER, dates, token)
+      if (!status) {
+        setNotice('Your faculty status is unavailable. Please try again.')
+        return
+      }
+      const saved = await saveSignupDates(status.semester, selectedCourse, dates, token)
       setDates(saved.dates)
       setSubmitted(true)
       setNotice('Your sign-up has been saved. You can update your course and dates until the deadline.')
@@ -89,7 +111,7 @@ export default function FacultyStatusPage() {
   }
 
   function cancelSignUp() {
-    setSelectedCourse(courses[0].id)
+    setSelectedCourse(courses[0]?.course_id ?? null)
     setDates(initialDates)
     setNewDate('')
     setSubmitted(false)
@@ -102,20 +124,19 @@ export default function FacultyStatusPage() {
         <section aria-labelledby="evaluation-status-title" className="evaluation-status-card">
           <p className="evaluation-status-card__eyebrow" id="evaluation-status-title">Evaluation status</p>
           <h1>Due this semester</h1>
-          <p>Assistant Professor - evaluated every year. Last observed Fall 2025</p>
-          <p className="evaluation-status-card__deadline">Sign up by [Oct 24]</p>
+          <p>{status?.professorRank} Professor. Evaluated every {status?.professorRank?.toLowerCase() === 'full' ? 'two years' : 'year'}. Last observed {status?.lastSemesterObserved ?? 'Not recorded'}</p>
+          <p className="evaluation-status-card__deadline">Sign up by {formatDeadline(status?.signupDeadline ?? null)}</p>
         </section>
 
         <section aria-labelledby="past-observations-title" className="past-observations">
           <h2 id="past-observations-title">Past observations</h2>
-          <p>
-            <span>Fall 2025 - CS 1337</span>
-            <AppLink to="/my-observation">View</AppLink>
-          </p>
-          <p>
-            <span>Fall 2024 - CS 2336</span>
-            <AppLink to="/my-observation">View</AppLink>
-          </p>
+          {status?.pastObservations.map((observation) => (
+            <p key={`${observation.semester}-${observation.courseCode ?? 'course'}`}>
+              <span>{observation.semester}{observation.courseCode ? ` - ${observation.courseCode}` : ''}</span>
+              <AppLink to="/my-observation">View</AppLink>
+            </p>
+          ))}
+          {status && status.pastObservations.length === 0 && <p>No past observations found.</p>}
         </section>
       </div>
 
@@ -126,23 +147,23 @@ export default function FacultyStatusPage() {
         </header>
 
         <fieldset className="course-picker">
-          <legend>Your Fall 2026 courses</legend>
+          <legend>Your {status?.semester ?? 'current'} courses</legend>
           <div className="course-options">
             {courses.map((course) => (
               <label
-                className={`course-option${selectedCourse === course.id ? ' course-option--selected' : ''}`}
-                key={course.id}
+                className={`course-option${selectedCourse === course.course_id ? ' course-option--selected' : ''}`}
+                key={course.course_id}
               >
                 <input
-                  checked={selectedCourse === course.id}
+                  checked={selectedCourse === course.course_id}
                   name="course"
-                  onChange={() => setSelectedCourse(course.id)}
+                  onChange={() => setSelectedCourse(course.course_id)}
                   type="radio"
-                  value={course.id}
+                  value={course.course_id}
                 />
                 <span>
-                  <strong>{course.name}</strong>
-                  <small>{course.schedule}</small>
+                  <strong>{course.department} {course.course_number}.{course.section_number} - {course.course_name}</strong>
+                  <small>{course.course_day ?? 'Schedule unavailable'} {course.course_start_time ?? ''}-{course.course_end_time ?? ''} {course.room_number ? `- ${course.room_number}` : ''}</small>
                 </span>
               </label>
             ))}
@@ -151,7 +172,7 @@ export default function FacultyStatusPage() {
 
         <fieldset className="observee-date-picker">
           <legend>Dates you can be observed</legend>
-          <p>Must be class days before the observation deadline. [Nov 21].</p>
+          <p>Must be class days before the observation deadline. {formatDeadline(status?.observationDeadline ?? null)}.</p>
           <div className="observee-date-list">
             {dates.map((date) => (
               <div className="observee-date-row" key={date}>
@@ -168,8 +189,7 @@ export default function FacultyStatusPage() {
             <div className="observee-date-add">
               <input
                 aria-label="Add an available observation date"
-                max="2026-11-21"
-                min="2026-11-02"
+                max={status?.observationDeadline?.slice(0, 10)}
                 onChange={(event) => setNewDate(event.target.value)}
                 type="date"
                 value={newDate}

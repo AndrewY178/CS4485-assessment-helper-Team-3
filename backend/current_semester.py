@@ -8,11 +8,12 @@ current_semester_bp = Blueprint("current_semester", __name__)
 
 
 def semester_for_date(today=None):
-    """Return the current setup semester, treating summer as the upcoming Fall."""
     today = today or date.today()
     if 1 <= today.month <= 5:
         return f"Spring {today.year}"
-    return f"Fall {today.year}"
+    if 8 <= today.month <= 12:
+        return f"Fall {today.year}"
+    return None
 
 
 def next_semester(semester):
@@ -26,4 +27,6 @@ def next_semester(semester):
 @current_semester_bp.get("/api/current-semester")
 def get_current_semester():
     semester = semester_for_date()
+    if semester is None:
+        return jsonify(error="Current date is outside the supported Spring and Fall semesters"), 400
     return jsonify(semester=semester, nextSemester=next_semester(semester))
