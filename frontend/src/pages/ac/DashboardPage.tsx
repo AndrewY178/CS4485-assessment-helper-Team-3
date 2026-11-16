@@ -257,9 +257,7 @@ export default function DashboardPage() {
       showNotice(
         result.recipientCount === 0
           ? 'No due or overdue evaluations were found.'
-          : result.testMode
-            ? `Sent ${result.sentCount} personalized test email${result.sentCount === 1 ? '' : 's'} to your test inbox for ${result.recipientCount} faculty member${result.recipientCount === 1 ? '' : 's'}.`
-            : `Sent ${result.sentCount} evaluation reminder${result.sentCount === 1 ? '' : 's'}.`,
+          : `Created ${result.notificationCount} in-app notification${result.notificationCount === 1 ? '' : 's'} for ${result.recipientCount} faculty member${result.recipientCount === 1 ? '' : 's'} and sent ${result.sentCount} ${result.testMode ? 'test email' : 'email reminder'}${result.sentCount === 1 ? '' : 's'}${result.testMode ? ' to the test inbox' : ''}.`,
         5000,
       )
     } catch (error) {

@@ -105,7 +105,7 @@ Faculty members can participate as both Observers and Observees. AC Members also
 
 ### EmailJS email delivery
 
-The backend's reusable `emailservice.py` sends emails through EmailJS. AC-created accounts cannot log in until the invited user opens the one-time setup link, verifies their email, and sets a password. Forgot-password requests email a separate one-time reset link. The AC-only dashboard **Send reminders** action uses backend data: a missing report for the latest sign-up cycle is `Due`; a missing report for the previous sign-up cycle is `Overdue`. It sends at most one reminder per faculty member, preferring the overdue cycle when multiple cycles are incomplete.
+The backend's reusable `emailservice.py` sends emails through EmailJS. AC-created accounts cannot log in until the invited user opens the one-time setup link, verifies their email, and sets a password. Forgot-password requests email a separate one-time reset link. The AC-only dashboard **Send reminders** action uses backend data: a missing report for the latest sign-up cycle is `Due`; a missing report for the previous sign-up cycle is `Overdue`. It sends each recipient an email and stores a matching in-app notification, at most one of each per faculty member, preferring the overdue cycle when multiple cycles are incomplete.
 
 1. In EmailJS, create a service and a template. Set the template's **To Email** field to `{{to_email}}`. In the email body, use `Hello {{to_name}},` and `{{message}}`.
 2. The backend reads these settings from the repository-root `.env` file. The Compose configuration passes them into the backend container:
@@ -128,9 +128,13 @@ The backend's reusable `emailservice.py` sends emails through EmailJS. AC-create
    ```bash
    docker compose up -d --force-recreate backend
    ```
-3. While running the frontend with `npm run dev`, log in as an AC Member and press **Send reminders**. The backend determines eligibility from sign-up cycles and submitted reports, then sends one personalized test email per eligible faculty member to the test inbox. EmailJS allows one send request per second, so a batch may take a little time. The button result distinguishes test sends from live sends.
+3. While running the frontend with `npm run dev`, log in as an AC Member and press **Send reminders**. The backend determines eligibility from sign-up cycles and submitted reports, creates an in-app notification in each recipient's Messages inbox, and sends one personalized email per eligible faculty member. In test mode, emails go to the test inbox while in-app notifications still go to the intended faculty accounts. EmailJS allows one send request per second, so a batch may take a little time. Faculty can open **Messages** to view and dismiss their notifications.
 
 The current cycle is the newest semester with sign-up records; the previous cycle is the next newest semester. A submitted observation report marks that faculty evaluation complete. Restrict the EmailJS service to the intended website origins and configure its sending limits.
+
+### In-app notifications
+
+AC Members can open **Messages** from the sidebar, compose a titled message, and send it to selected faculty or all active faculty. Notifications are stored in the database; recipients see them in their own Messages inbox and can dismiss them. Dismissal only hides a message for that recipient. Existing databases must apply `db/migrations/20261107_add_notifications.sql` once; fresh databases create the table from `db/01-schema.sql`.
 
 Existing databases must be upgraded before deploying the email verification check. Back up the database, then apply `db/migrations/20261103_add_email_verification.sql`. It marks existing accounts with passwords as verified so they can continue to log in; newly invited accounts remain unverified until they use their setup link.
 

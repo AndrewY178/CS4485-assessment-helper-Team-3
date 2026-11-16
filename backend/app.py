@@ -17,8 +17,13 @@ from dashboard import dashboard_bp
 from professor_rank import professor_rank_bp
 from past_observations import past_observations_bp
 from feedback import feedback_bp
-
+from faculty_status import faculty_status_bp
+from current_semester import current_semester_bp
+from templates import templates_bp
+from notifications import notifications_bp
 from db import query, pool, transaction
+from datetime import datetime, timezone
+from cycle_setup import cycle_setup_bp
 
 # use the .env at the repo root 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -34,6 +39,11 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(professor_rank_bp)
 app.register_blueprint(past_observations_bp)
 app.register_blueprint(feedback_bp)
+app.register_blueprint(cycle_setup_bp)
+app.register_blueprint(current_semester_bp)
+app.register_blueprint(faculty_status_bp)
+app.register_blueprint(templates_bp)
+app.register_blueprint(notifications_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
@@ -132,6 +142,7 @@ COURSE_SELECT = f"""
     SELECT *
     FROM courses c
 """
+
 TRACKING_SELECT = """
     SELECT
         o.observee_id,
@@ -413,6 +424,7 @@ def generate_observer_list(observee_id, signup_semester):
 def get_users():
     rows = query(PROFESSOR_SELECT + " ORDER BY p.professor_name")
     return jsonify(rows)
+
 
 # need to get everything from user, plus signup sem, course id,
 # course dep, course number, course section, course day, course starttime
@@ -1532,6 +1544,7 @@ def get_faculty_courses():
 def health():
     return jsonify(status="ok")
 
+# DON'T PUT ANYTHING BELOW THIS
 if __name__ == "__main__":
     # host: 0.0.0.0 allows for queries from across the wifi network (not just local host)
     app.run(host="0.0.0.0", debug=True, port=5001)

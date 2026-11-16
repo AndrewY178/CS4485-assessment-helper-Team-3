@@ -6,6 +6,7 @@ from flask import Flask
 
 import auth
 import reminders
+from emailservice import EmailServiceError
 
 
 class ReminderCandidateTests(unittest.TestCase):
@@ -79,6 +80,7 @@ class SendRemindersTests(unittest.TestCase):
 
     @patch("reminders.time.sleep")
     @patch("reminders.send_email")
+    @patch("reminders.create_notification", return_value=1)
     @patch("reminders._reminder_candidates")
     @patch("auth._roles_for", return_value=["AC Member"])
     @patch("auth._current_session", return_value={"session_id": 3, "user_id": 8})
@@ -96,6 +98,7 @@ class SendRemindersTests(unittest.TestCase):
         _mock_session,
         _mock_roles,
         mock_candidates,
+        mock_create_notification,
         mock_send_email,
         mock_sleep,
     ):
@@ -124,8 +127,23 @@ class SendRemindersTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.get_json(),
-            {"sentCount": 2, "recipientCount": 2, "testMode": True},
+            {
+                "sentCount": 2,
+                "recipientCount": 2,
+                "notificationCount": 2,
+                "testMode": True,
+            },
         )
+        self.assertEqual(mock_create_notification.call_count, 2)
+        first_notification = mock_create_notification.call_args_list[0].args
+        self.assertEqual(first_notification[0], 10)
+        self.assertEqual(first_notification[1], "Evaluation due — Fall 2026")
+        self.assertIn("Hello Alex Faculty", first_notification[2])
+        self.assertNotIn("TEST MESSAGE", first_notification[2])
+        second_notification = mock_create_notification.call_args_list[1].args
+        self.assertEqual(second_notification[0], 11)
+        self.assertEqual(second_notification[1], "Evaluation overdue — Spring 2026")
+        self.assertIn("Hello Bri Faculty", second_notification[2])
         self.assertEqual(mock_send_email.call_count, 2)
         self.assertEqual(
             [call.args[0] for call in mock_send_email.call_args_list],
@@ -153,7 +171,12 @@ class SendRemindersTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.get_json(),
-            {"sentCount": 0, "recipientCount": 0, "testMode": False},
+            {
+                "sentCount": 0,
+                "recipientCount": 0,
+                "notificationCount": 0,
+                "testMode": False,
+            },
         )
 
     @patch("reminders._reminder_candidates")
@@ -169,6 +192,61 @@ class SendRemindersTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
         mock_candidates.assert_not_called()
+
+    @patch("reminders.time.sleep")
+    @patch("reminders.send_email", side_effect=[EmailServiceError("EmailJS rejected request"), None])
+    @patch("reminders.create_notification", return_value=1)
+    @patch("reminders._reminder_candidates")
+    @patch("auth._roles_for", return_value=["AC Member"])
+    @patch("auth._current_session", return_value={"session_id": 3, "user_id": 8})
+    @patch.dict(
+        os.environ,
+        {
+            "REMINDER_TEST_MODE": "true",
+            "EMAILJS_TEST_RECIPIENT": "test-inbox@example.com",
+            "FRONTEND_URL": "http://localhost:5173",
+        },
+        clear=True,
+    )
+    def test_keeps_app_notifications_when_some_email_sends_fail(
+        self,
+        _mock_session,
+        _mock_roles,
+        mock_candidates,
+        mock_create_notification,
+        mock_send_email,
+        mock_sleep,
+    ):
+        mock_candidates.return_value = [
+            {
+                "user_id": 10,
+                "name": "Alex Faculty",
+                "email": "alex@example.com",
+                "cycle": "Fall 2026",
+                "status": "Due",
+            },
+            {
+                "user_id": 11,
+                "name": "Bri Faculty",
+                "email": "bri@example.com",
+                "cycle": "Spring 2026",
+                "status": "Overdue",
+            },
+        ]
+
+        response = self.client.post(
+            "/api/reminders",
+            headers={"Authorization": "Bearer valid-session-token"},
+        )
+
+        self.assertEqual(response.status_code, 502)
+        body = response.get_json()
+        self.assertEqual(body["notificationCount"], 2)
+        self.assertEqual(body["sentCount"], 1)
+        self.assertIn("Created 2 in-app notifications", body["error"])
+        self.assertEqual(mock_create_notification.call_count, 2)
+        self.assertEqual(mock_send_email.call_count, 2)
+        mock_sleep.assert_called_once_with(reminders.EMAILJS_RATE_LIMIT_SECONDS)
 
 
 if __name__ == "__main__":

@@ -19,14 +19,15 @@ export type Role = 'AC Member' | 'Faculty'
 interface Session {
   token: string
   roles: Role[]
+  activeRole?: Role
   userId: string
 }
 
 interface AuthContextValue {
   roles: Role[]
-  token: string | null
   userId: string | null
   token: string | null
+  canSwitchRoleForTesting: boolean
   // rejects with an ApiError (its message is safe to show to the user)
   login: (email: string, password: string) => Promise<Role[]>
   logout: () => Promise<void>
@@ -100,9 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!import.meta.env.DEV) return
 
     setSession((current) => {
-      if (!current) return current
+      if (!current || !current.roles.includes(role)) return current
 
-      const next: Session = { ...current, roles: [role] }
+      const next: Session = { ...current, activeRole: role }
       saveSession(next)
       return next
     })
@@ -110,10 +111,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      roles: session?.roles ?? [],
-      token: session?.token ?? null,
+      roles: session
+        ? session.activeRole
+          ? [session.activeRole]
+          : session.roles
+        : [],
       userId: session?.userId ?? null,
       token: session?.token ?? null,
+      canSwitchRoleForTesting:
+        import.meta.env.DEV &&
+        Boolean(
+          session?.roles.includes('AC Member') &&
+            session.roles.includes('Faculty'),
+        ),
       login,
       logout,
       switchRoleForTesting,

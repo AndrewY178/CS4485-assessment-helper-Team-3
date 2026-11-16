@@ -68,10 +68,15 @@ function formatDate(value: string) {
   }).format(date)
 }
 
+function formatDeadline(value: string | null) {
+  return value ? formatDate(value.slice(0, 10)) : 'Not set'
+}
+
 export default function FacultyStatusPage() {
   const [courses, setCourses] = useState<FacultyCourse[]>([])
-  const [selectedCourse, setSelectedCourse] = useState('')
-  const [dates, setDates] = useState<string[]>([])
+  const [status, setStatus] = useState<FacultyStatusResponse | null>(null)
+  const [selectedCourse, setSelectedCourse] = useState<number | null>(null)
+  const [dates, setDates] = useState(initialDates)
   const [newDate, setNewDate] = useState('')
   const [notice, setNotice] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -148,16 +153,37 @@ export default function FacultyStatusPage() {
     if (!token) return
 
     const controller = new AbortController()
-    void getSignupDates(TEMPORARY_SCHEDULE_SEMESTER, token, controller.signal)
-      .then((saved) => {
-        if (controller.signal.aborted || saved.dates.length === 0) return
+    void getFacultyStatus(token, controller.signal)
+      .then((facultyStatus) => {
+        if (controller.signal.aborted) return null
+        setStatus(facultyStatus)
+        console.log("about to get stuff")
+        return Promise.all([
+          getFacultyCourses(facultyStatus.semester, token, controller.signal),
+          getSignupDates(facultyStatus.semester, token, controller.signal)
+          .catch((error: unknown) => {
+            if (error instanceof ApiError && error.status === 404) {
+              return { course_id: null, dates: [] }
+            }
+            throw error
+          })
+          ,
+        ])
+      })
+      .then((result) => {
+        if (!result || controller.signal.aborted) return
+
+        const [available, saved] = result
+        console.log(available)
+        if (controller.signal.aborted) return
+        setCourses(available.courses)
+        setSelectedCourse(saved.course_id)
         setDates(saved.dates)
         setSubmitted(true)
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
         // no sign-up yet (404) is expected, so only show other problems
-        if (error instanceof ApiError && error.status === 404) return
         setNotice(error instanceof Error ? error.message : 'Your saved dates could not be loaded.')
       })
 
@@ -172,7 +198,7 @@ export default function FacultyStatusPage() {
 
   async function submitSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selectedCourse) {
+    if (selectedCourse === null) {
       setNotice('Choose a course before submitting your sign-up.')
       return
     }
@@ -185,7 +211,11 @@ export default function FacultyStatusPage() {
       return
     }
     try {
-      const saved = await saveSignupDates(TEMPORARY_SCHEDULE_SEMESTER, dates, token)
+      if (!status) {
+        setNotice('Your faculty status is unavailable. Please try again.')
+        return
+      }
+      const saved = await saveSignupDates(status.semester, selectedCourse, dates, token)
       setDates(saved.dates)
       setSubmitted(true)
       setNotice('Your sign-up has been saved. You can update your course and dates until the deadline.')
