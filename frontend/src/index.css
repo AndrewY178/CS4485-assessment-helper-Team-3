@@ -265,12 +265,40 @@ a {
 }
 
 .sidebar__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   border-radius: 7px;
   padding: 10px 11px;
   color: rgb(255 255 255 / 57%);
   font-size: 12px;
   text-decoration: none;
   transition: color 120ms ease, background-color 120ms ease;
+}
+
+.sidebar__message-badge {
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  display: inline-flex;
+  min-width: 21px;
+  height: 21px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 5px;
+  color: var(--white);
+  background: #e44335;
+  box-shadow: 0 0 0 2px var(--green-900);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sidebar__messages-link {
+  position: relative;
+  justify-content: flex-start;
 }
 
 .sidebar__link:hover,

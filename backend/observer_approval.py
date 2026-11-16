@@ -9,10 +9,11 @@ API endpoint: "AC approve candidates"
         
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from api_helpers import error, json_body, transaction
 from auth import ac_required
+from notifications import insert_notifications, send_notification_email
 
 observer_approval_bp = Blueprint("observer_approval", __name__)
 
@@ -68,6 +69,12 @@ def approve_observers():
     if len(observer_ids) > MAX_APPROVED_OBSERVERS:
         return error(f"Approve at most {MAX_APPROVED_OBSERVERS} observers", 400)
 
+    email = ""
+    name = ""
+    message = (
+        f"Your approved observer list for {signup_semester} is ready. "
+        "In the sidebar, go to Observee > My Observer to review the list and send requests."
+    )
     with transaction() as cur:
         # lock the sign-up so two approvals at once can't both go through
         cur.execute(
@@ -84,6 +91,20 @@ def approve_observers():
             return error("Observee sign-up was not found", 404)
         if signup["status"] != "generated":
             return error(_wrong_status_message(signup["status"]), 409)
+        cur.execute(
+            """
+            SELECT p.professor_name, u.email
+            FROM professors p
+            JOIN users u ON u.id = p.professor_id
+            WHERE p.professor_id = %s
+            """,
+            (observee_id,),
+        )
+        observee = cur.fetchone()
+        if observee is None:
+            return error("Observee account was not found", 404)
+        name = observee["professor_name"] or ""
+        email = observee["email"] or ""
 
         cur.execute(
             "SELECT meeting_id FROM meetings WHERE course_id = %s ORDER BY meeting_id LIMIT 1",
@@ -132,13 +153,24 @@ def approve_observers():
             "UPDATE observees SET status = 'approved' WHERE observee_id = %s AND signup_sem = %s",
             (observee_id, signup_semester),
         )
+        insert_notifications(
+            cur,
+            [observee_id],
+            f"Observer list ready — {signup_semester}",
+            message,
+            g.user_id,
+        )
 
+    email_result = send_notification_email(email, message, name=name)
     return jsonify(
         observee_id=observee_id,
         signup_semester=signup_semester,
         meeting_id=meeting_id,
         approved=sorted(observer_ids),
         removed=removed,
+        notificationSent=True,
+        emailSent=email_result["email_sent"],
+        emailError=email_result["email_error"],
     )
 
 

@@ -137,8 +137,10 @@ export default function ObserverRequestsPage() {
     }
 
     try {
+      let emailError: string | null | undefined
       if (status === 'accepted') {
-        await acceptObserverRequest(meetingId, selectedDate, token)
+        const result = await acceptObserverRequest(meetingId, selectedDate, token)
+        emailError = result.emailError
       } else {
         await declineObserverRequest(meetingId, token)
       }
@@ -146,7 +148,7 @@ export default function ObserverRequestsPage() {
       const name = request.observee_name ?? '—'
       setNotice(
         status === 'accepted'
-          ? `You confirmed ${name}'s request.`
+          ? `You confirmed ${name}'s request.${emailError ? ' The in-app notification was saved, but the email could not be sent.' : ''}`
           : `You declined ${name}'s request.`,
       )
     } catch (caught) {

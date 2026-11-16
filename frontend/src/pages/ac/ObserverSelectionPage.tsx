@@ -295,8 +295,9 @@ export default function ObserverSelectionPage() {
       return
     }
 
+    let approval: Awaited<ReturnType<typeof approveObserverList>>
     try {
-      await approveObserverList(
+      approval = await approveObserverList(
         selectedRow.observee.id,
         selectedRow.semesterId,
         validIds,
@@ -328,7 +329,11 @@ export default function ObserverSelectionPage() {
         : row
     )))
     setApprovalOpen(false)
-    showNotice('Candidate list approved. No invitations were sent.')
+    showNotice(
+      approval.emailError
+        ? 'Candidate list approved and an in-app notification was saved, but the email could not be sent.'
+        : 'Candidate list approved. The observee was notified.',
+    )
   }
 
   async function reopenList() {

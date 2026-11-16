@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ConfirmDeadlineChangeDialog from '../../components/cycle/ConfirmDeadlineChangeDialog'
 import CycleTimelinePreview from '../../components/cycle/CycleTimelinePreview'
 import DeadlineField from '../../components/cycle/DeadlineField'
+import { ApiError } from '../../api/auth'
+import { getEvaluationCycles, saveEvaluationCycle, type ScheduleRow } from '../../api/cycles'
 import { useAuth } from '../../context/AuthContext'
 import { initialCycleRecords, type MockCycleRecord } from '../../data/cycleMockData'
-import type { SaveEvaluationCycleRequest } from '../../types/api'
+import type { CycleStatus, SaveEvaluationCycleRequest } from '../../types/api'
 import '../../styles/cycle-setup.css'
 
 type DeadlineKey = keyof SaveEvaluationCycleRequest
@@ -23,6 +25,32 @@ function cycleToForm(record: MockCycleRecord): SaveEvaluationCycleRequest {
     signupDeadline: toLocalInputValue(record.cycle.signupDeadline),
     observationDeadline: toLocalInputValue(record.cycle.observationDeadline),
     feedbackDeadline: toLocalInputValue(record.cycle.feedbackDeadline),
+  }
+}
+
+function scheduleRowToRecord(row: ScheduleRow): MockCycleRecord {
+  const statuses: CycleStatus[] = ['draft', 'signup', 'observation', 'feedback', 'closed']
+  const semesterLabel = row.semester.replace(
+    /^(\d{4})-(spring|summer|fall)$/i,
+    (_match, year: string, season: string) =>
+      `${season[0].toUpperCase()}${season.slice(1).toLowerCase()} ${year}`,
+  )
+
+  return {
+    cycle: {
+      id: `cycle-${row.semester}`,
+      semesterId: row.semester,
+      semesterLabel,
+      timezone: 'America/Chicago',
+      status: statuses.includes(row.cycle_status as CycleStatus)
+        ? row.cycle_status as CycleStatus
+        : 'draft',
+      signupDeadline: row.signup_deadline,
+      observationDeadline: row.observation_deadline,
+      feedbackDeadline: row.feedback_deadline,
+      updatedAt: row.updated_at,
+    },
+    hasActivity: false,
   }
 }
 
@@ -56,7 +84,7 @@ function validateDeadlines(values: SaveEvaluationCycleRequest) {
 }
 
 export default function CycleSetupPage() {
-  const { roles } = useAuth()
+  const { roles, token } = useAuth()
   const [records, setRecords] = useState(initialCycleRecords)
   const [selectedSemesterId, setSelectedSemesterId] = useState(records[0].cycle.semesterId)
   const selectedRecord = records.find((record) => record.cycle.semesterId === selectedSemesterId) ?? records[0]
@@ -64,11 +92,52 @@ export default function CycleSetupPage() {
   const [errors, setErrors] = useState<DeadlineErrors>({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [notice, setNotice] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
   const savedForm = useMemo(() => cycleToForm(selectedRecord), [selectedRecord])
   const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm)
   const isACMember = roles.includes('AC Member')
   const canEdit = isACMember && selectedRecord.cycle.status !== 'closed'
+
+  useEffect(() => {
+    let active = true
+
+    async function loadCycles() {
+      if (!token) {
+        setLoadError('Your session is unavailable. Please sign in again.')
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const rows = await getEvaluationCycles(token)
+        if (!active) return
+        if (rows.length > 0) {
+          const loaded = rows.map(scheduleRowToRecord)
+          setRecords(loaded)
+          setSelectedSemesterId(loaded[0].cycle.semesterId)
+          setForm(cycleToForm(loaded[0]))
+        }
+      } catch (caught) {
+        if (active) {
+          setLoadError(
+            caught instanceof ApiError
+              ? caught.message
+              : 'Unable to load evaluation cycle deadlines.',
+          )
+        }
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+
+    void loadCycles()
+    return () => {
+      active = false
+    }
+  }, [token])
 
   function showNotice(message: string) {
     setNotice(message)
@@ -109,25 +178,41 @@ export default function CycleSetupPage() {
     else commitSave()
   }
 
-  function commitSave() {
-    // TODO(API): PUT /api/schedule/{semesterId} with these UTC fields and only
-    // update the UI after Flask returns EvaluationCycleResponse successfully.
-    setRecords((current) => current.map((record) => (
-      record.cycle.semesterId === selectedSemesterId
-        ? {
-            ...record,
-            cycle: {
-              ...record.cycle,
-              signupDeadline: new Date(form.signupDeadline).toISOString(),
-              observationDeadline: new Date(form.observationDeadline).toISOString(),
-              feedbackDeadline: new Date(form.feedbackDeadline).toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-          }
-        : record
-    )))
-    setConfirmOpen(false)
-    showNotice('Cycle draft saved for this session. It will be lost on refresh.')
+  async function commitSave() {
+    if (!token) {
+      showNotice('Your session is unavailable. Please sign in again.')
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      await saveEvaluationCycle(selectedSemesterId, form, token)
+      setRecords((current) => current.map((record) => (
+        record.cycle.semesterId === selectedSemesterId
+          ? {
+              ...record,
+              cycle: {
+                ...record.cycle,
+                signupDeadline: new Date(form.signupDeadline).toISOString(),
+                observationDeadline: new Date(form.observationDeadline).toISOString(),
+                feedbackDeadline: new Date(form.feedbackDeadline).toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            }
+          : record
+      )))
+      setLoadError('')
+      setConfirmOpen(false)
+      showNotice('Evaluation deadlines saved.')
+    } catch (caught) {
+      showNotice(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Unable to save evaluation deadlines.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   if (!isACMember) {
@@ -164,9 +249,8 @@ export default function CycleSetupPage() {
 
       {notice && <div className="toast" role="status">{notice}</div>}
 
-      <p className="cycle-session-note">
-        Prototype only: deadline changes are stored in React state and are not saved to Flask or MySQL.
-      </p>
+      {loadError && <p className="inline-notice" role="alert">{loadError}</p>}
+      {isLoading && <p role="status">Loading saved deadlines...</p>}
 
       <div className="cycle-layout">
         <section aria-labelledby="deadline-form-title" className="cycle-form-panel">
@@ -225,11 +309,11 @@ export default function CycleSetupPage() {
             </button>
             <button
               className="cycle-button cycle-button--primary"
-              disabled={!isDirty || !canEdit}
+              disabled={!isDirty || !canEdit || isSaving || isLoading}
               onClick={requestSave}
               type="button"
             >
-              Save deadlines
+              {isSaving ? 'Saving...' : 'Save deadlines'}
             </button>
           </div>
         </section>

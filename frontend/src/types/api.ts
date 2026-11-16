@@ -203,6 +203,8 @@ export interface ConfirmObserverResponse {
   observer_id: number
   status: 'confirmed'
   selected_date: string | null
+  notifiedCount?: number
+  emailError?: string | null
 }
 
 export interface SendObserverRequestsResponse {

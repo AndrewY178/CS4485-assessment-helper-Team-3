@@ -6,6 +6,9 @@ export interface ApproveObserversResponse {
   meeting_id: number
   approved: number[]
   removed: number
+  notificationSent?: boolean
+  emailSent?: boolean
+  emailError?: string | null
 }
 
 // PUT /api/observers/approval: the AC approves 1-5 of the generated candidates.

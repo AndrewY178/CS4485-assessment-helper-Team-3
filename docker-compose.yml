@@ -45,5 +45,28 @@ services:
       db:
         condition: service_healthy
 
+  deadline-worker:
+    build:
+      context: .
+    container_name: class-deadline-worker
+    command: ["python", "deadline_worker.py"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      EMAILJS_SERVICE_ID: ${VITE_EMAILJS_SERVICE_ID:-}
+      EMAILJS_TEMPLATE_ID: ${VITE_EMAILJS_TEMPLATE_ID:-}
+      EMAILJS_PUBLIC_KEY: ${VITE_EMAILJS_PUBLIC_KEY:-}
+      EMAILJS_REMINDER_TEMPLATE_ID: ${EMAILJS_REMINDER_TEMPLATE_ID:-}
+      EMAILJS_TEST_RECIPIENT: ${VITE_EMAILJS_TEST_RECIPIENT:-}
+      REMINDER_TEST_MODE: ${REMINDER_TEST_MODE:-true}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      DEADLINE_WORKER_INTERVAL_SECONDS: ${DEADLINE_WORKER_INTERVAL_SECONDS:-60}
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   db_data:
