@@ -474,3 +474,31 @@ SET @m4 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_cour
 
 INSERT INTO observation_requests (meeting_id, observer_id, status, sent_at) VALUES
     (@m4, @p09, 'pending', NOW() - INTERVAL 3 DAY);
+
+-- Offered dates for the remaining seeded observees. Each date matches the
+-- course meeting days listed above so every seeded professor can exercise signup.
+INSERT INTO signup_dates (observee_id, signup_sem, offered_date)
+SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'prof_01'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'prof_01'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'prof_01'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-17' FROM users WHERE username = 'prof_02'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-19' FROM users WHERE username = 'prof_02'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-24' FROM users WHERE username = 'prof_02'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'prof_05'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'prof_05'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'prof_05'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-17' FROM users WHERE username = 'prof_08'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-19' FROM users WHERE username = 'prof_08'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-24' FROM users WHERE username = 'prof_08'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'prof_09'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'prof_09'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'prof_09'
+UNION ALL SELECT id, 'Spring 2026', '2026-03-10' FROM users WHERE username = 'prof_10'
+UNION ALL SELECT id, 'Spring 2026', '2026-03-12' FROM users WHERE username = 'prof_10'
+UNION ALL SELECT id, 'Spring 2026', '2026-03-17' FROM users WHERE username = 'prof_10'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'prof_11'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'prof_11'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'prof_11'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'dev_user'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'dev_user'
+UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'dev_user';

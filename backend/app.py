@@ -19,6 +19,7 @@ from db import query, pool, transaction
 from datetime import datetime, timezone
 from cycle_setup import cycle_setup_bp
 from current_semester import current_semester_bp
+from evaluations import evaluations_bp
 
 # use the .env at the repo root 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -33,6 +34,7 @@ app.register_blueprint(feedback_bp)
 app.register_blueprint(templates_bp)
 app.register_blueprint(cycle_setup_bp)
 app.register_blueprint(current_semester_bp)
+app.register_blueprint(evaluations_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
@@ -153,6 +155,7 @@ TRACKING_SELECT = """
         COALESCE(requests.accepted_count, 0) AS accepted_count,
         COALESCE(requests.declined_count, 0) AS declined_count,
         COALESCE(requests.confirmed_count, 0) AS confirmed_count,
+        COALESCE(requests.canceled_count, 0) AS canceled_count,
         COALESCE(requests.not_selected_count, 0) AS not_selected_count,
         COALESCE(requests.expired_count, 0) AS expired_count
     FROM observees o
@@ -173,6 +176,7 @@ TRACKING_SELECT = """
             SUM(status = 'accepted') AS accepted_count,
             SUM(status = 'declined') AS declined_count,
             SUM(status = 'confirmed') AS confirmed_count,
+            SUM(status = 'canceled') AS canceled_count,
             SUM(status = 'not_selected') AS not_selected_count,
             SUM(
                 status = 'expired'
@@ -227,6 +231,8 @@ FACULTY_SCHEDULE_OBSERVEE_SELECT = """
 
 
 def tracking_status(row):
+    if row["canceled_count"]:
+        return "canceled"
     if row["report_exists"]:
         return "completed"
 
@@ -279,6 +285,7 @@ def tracking_record(row):
             "accepted": int(row["accepted_count"] or 0),
             "declined": int(row["declined_count"] or 0),
             "confirmed": int(row["confirmed_count"] or 0),
+            "canceled": int(row["canceled_count"] or 0),
             "notSelected": int(row["not_selected_count"] or 0),
             "expired": int(row["expired_count"] or 0),
         },
