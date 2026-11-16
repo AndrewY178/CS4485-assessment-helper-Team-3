@@ -28,6 +28,8 @@ from templates import templates_bp
 from db import query, pool, transaction
 from datetime import datetime, timezone
 from cycle_setup import cycle_setup_bp
+from current_semester import current_semester_bp
+from evaluations import evaluations_bp
 
 EMAILJS_RATE_LIMIT_SECONDS = 1.1
 
@@ -50,6 +52,7 @@ app.register_blueprint(current_semester_bp)
 app.register_blueprint(faculty_status_bp)
 app.register_blueprint(templates_bp)
 app.register_blueprint(notifications_bp)
+app.register_blueprint(evaluations_bp)
 
 # SQL statements
 PROFESSOR_SELECT = f"""
@@ -163,13 +166,17 @@ TRACKING_SELECT = """
         m.meeting_date,
         m.observer_id,
         observer.professor_name AS observer_name,
-        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists,
+        CASE
+            WHEN e.evaluation_status = 'submitted' THEN 1
+            ELSE 0
+        END AS report_exists,
         COALESCE(requests.total_count, 0) AS request_total,
         COALESCE(requests.approved_count, 0) AS approved_count,
         COALESCE(requests.pending_count, 0) AS pending_count,
         COALESCE(requests.accepted_count, 0) AS accepted_count,
         COALESCE(requests.declined_count, 0) AS declined_count,
         COALESCE(requests.confirmed_count, 0) AS confirmed_count,
+        COALESCE(requests.canceled_count, 0) AS canceled_count,
         COALESCE(requests.not_selected_count, 0) AS not_selected_count,
         COALESCE(requests.expired_count, 0) AS expired_count
     FROM observees o
@@ -177,7 +184,7 @@ TRACKING_SELECT = """
     LEFT JOIN courses c ON c.course_id = o.signup_course
     LEFT JOIN meetings m ON m.course_id = o.signup_course
     LEFT JOIN professors observer ON observer.professor_id = m.observer_id
-    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    LEFT JOIN evaluations e ON e.meeting_id = m.meeting_id
     LEFT JOIN (
         SELECT
             meeting_id,
@@ -190,6 +197,7 @@ TRACKING_SELECT = """
             SUM(status = 'accepted') AS accepted_count,
             SUM(status = 'declined') AS declined_count,
             SUM(status = 'confirmed') AS confirmed_count,
+            SUM(status = 'canceled') AS canceled_count,
             SUM(status = 'not_selected') AS not_selected_count,
             SUM(
                 status = 'expired'
@@ -210,11 +218,14 @@ FACULTY_SCHEDULE_CONDUCTING_SELECT = """
         c.section_number,
         c.course_name,
         observee.professor_name AS counterpart_name,
-        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists
+        CASE
+            WHEN e.evaluation_status = 'submitted' THEN 1
+            ELSE 0
+        END AS report_exists
     FROM meetings m
     JOIN courses c ON c.course_id = m.course_id
     JOIN professors observee ON observee.professor_id = c.prof_id
-    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    LEFT JOIN evaluations e ON e.meeting_id = m.meeting_id
     WHERE m.observer_id = %s
       AND c.semester = %s
       AND m.observer_id IS NOT NULL
@@ -230,11 +241,14 @@ FACULTY_SCHEDULE_OBSERVEE_SELECT = """
         c.section_number,
         c.course_name,
         observer.professor_name AS counterpart_name,
-        CASE WHEN r.meeting_id IS NULL THEN 0 ELSE 1 END AS report_exists
+        CASE
+            WHEN e.evaluation_status = 'submitted' THEN 1
+            ELSE 0
+        END AS report_exists
     FROM meetings m
     JOIN courses c ON c.course_id = m.course_id
     JOIN professors observer ON observer.professor_id = m.observer_id
-    LEFT JOIN reports r ON r.meeting_id = m.meeting_id
+    LEFT JOIN evaluations e ON e.meeting_id = m.meeting_id
     WHERE c.prof_id = %s
       AND c.semester = %s
       AND m.observer_id IS NOT NULL
@@ -244,6 +258,8 @@ FACULTY_SCHEDULE_OBSERVEE_SELECT = """
 
 
 def tracking_status(row):
+    if row["canceled_count"]:
+        return "canceled"
     if row["report_exists"]:
         return "completed"
 
@@ -296,6 +312,7 @@ def tracking_record(row):
             "accepted": int(row["accepted_count"] or 0),
             "declined": int(row["declined_count"] or 0),
             "confirmed": int(row["confirmed_count"] or 0),
+            "canceled": int(row["canceled_count"] or 0),
             "notSelected": int(row["not_selected_count"] or 0),
             "expired": int(row["expired_count"] or 0),
         },

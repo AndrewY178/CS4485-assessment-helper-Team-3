@@ -4,7 +4,11 @@ import CandidatePanel from '../../components/observer-selection/CandidatePanel'
 import ObserveeSelectionTable from '../../components/observer-selection/ObserveeSelectionTable'
 import SelectionSummary from '../../components/observer-selection/SelectionSummary'
 import { useAuth } from '../../context/AuthContext'
-import type { ObserverSelectionResponse, ObserveeResponse} from '../../types/api'
+import type {
+  ObserverCandidateResponse,
+  ObserverSelectionResponse,
+  ObserveeResponse,
+} from '../../types/api'
 import '../../styles/observer-selection.css'
 import { generateObserverLists, getObserverList, regenerateObserverList } from '../../api/observers'
 import { approveObserverList, reopenObserverList } from '../../api/observerApproval'

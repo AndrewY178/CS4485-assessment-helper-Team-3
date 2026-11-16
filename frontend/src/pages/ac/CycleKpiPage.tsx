@@ -3,7 +3,8 @@ import { ApiError } from '../../api/auth'
 import { getFeedbackBreakdown } from '../../api/feedback'
 import { getKpis } from '../../api/kpis'
 import { useAuth } from '../../context/AuthContext'
-import type { CycleKpis, FeedbackBreakdownResponse } from '../../types/api'
+import type { CycleKpis } from '../../types/api'
+import type { FeedbackBreakdownResponse } from '../../types/feedback'
 
 function percent(rate: number | null): string {
   if (rate == null) return '—'
@@ -26,18 +27,15 @@ export default function CycleKpiPage() {
   const { token } = useAuth()
   const [cycles, setCycles] = useState<CycleKpis[]>([])
   const [selectedCycle, setSelectedCycle] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(
+    token ? null : 'Your session is unavailable. Please sign in again.',
+  )
+  const [isLoading, setIsLoading] = useState(Boolean(token))
   const [breakdown, setBreakdown] = useState<FeedbackBreakdownResponse | null>(null)
-  const [surveyLoading, setSurveyLoading] = useState(false)
   const [surveyError, setSurveyError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false)
-      setError('Your session is unavailable. Please sign in again.')
-      return
-    }
+    if (!token) return
 
     const controller = new AbortController()
     getKpis(token, controller.signal)
@@ -62,19 +60,17 @@ export default function CycleKpiPage() {
   useEffect(() => {
     if (!token || !selectedCycle) return
     const controller = new AbortController()
-    setSurveyLoading(true)
-    setSurveyError(null)
     getFeedbackBreakdown(selectedCycle, token, controller.signal)
       .then((stored) => {
-        if (!controller.signal.aborted) setBreakdown(stored)
+        if (!controller.signal.aborted) {
+          setBreakdown(stored)
+          setSurveyError(null)
+        }
       })
       .catch((caught: unknown) => {
         if (controller.signal.aborted) return
         setBreakdown(null)
         setSurveyError(caught instanceof Error ? caught.message : 'Survey responses could not be loaded.')
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setSurveyLoading(false)
       })
     return () => controller.abort()
   }, [selectedCycle, token])
@@ -84,6 +80,7 @@ export default function CycleKpiPage() {
   const previous = current ? cycles[selectedIndex + 1] : undefined
   const counts = breakdown && breakdown.semester === current?.cycle ? breakdown.counts : null
   const responseCount = counts ? counts.yes + counts.mostly + counts.no : 0
+  const surveyLoading = Boolean(selectedCycle) && breakdown?.semester !== selectedCycle && !surveyError
   const surveySummary = !current || surveyLoading
     ? 'Loading survey responses…'
     : surveyError
@@ -179,7 +176,10 @@ export default function CycleKpiPage() {
           <span>Reporting cycle</span>
           <select
             aria-label="Reporting cycle"
-            onChange={(event) => setSelectedCycle(event.target.value)}
+            onChange={(event) => {
+              setSelectedCycle(event.target.value)
+              setSurveyError(null)
+            }}
             value={current?.cycle ?? ''}
           >
             {cycles.map((cycle) => (

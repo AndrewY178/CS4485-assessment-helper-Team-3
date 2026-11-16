@@ -12,13 +12,13 @@ import TrackingPage from './pages/ac/TrackingPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import LoginPage from './pages/auth/LoginPage'
 import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import FeedbackSurveyPage from './pages/faculty/FeedbackSurveyPage'
 import FacultyStatusPage from './pages/faculty/FacultyStatusPage'
 import MySchedulePage from './pages/faculty/MySchedulePage'
 import MyObservationPage from './pages/faculty/observee/MyObservationPage'
 import MyObserversPage from './pages/faculty/observee/MyObserversPage'
 import ObservationFormsPage from './pages/faculty/observer/ObservationFormsPage'
 import ObserverRequestsPage from './pages/faculty/observer/ObserverRequestsPage'
-import PlaceholderPage from './pages/shared/PlaceholderPage'
 import NotificationsPage from './pages/NotificationsPage'
 
 const loggedOutPaths = ['/login', '/forgot-password', '/reset-password']
@@ -131,7 +131,7 @@ export default function App() {
       page = <NotificationsPage />
       break
     case '/survey':
-      page = <PlaceholderPage title="Survey" />
+      page = <FeedbackSurveyPage />
       break
   }
 

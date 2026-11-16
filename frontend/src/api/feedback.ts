@@ -2,27 +2,31 @@ import type {
   FeedbackBreakdownResponse,
   FeedbackResponse,
   SaveFeedbackRequest,
-} from '../types/api'
+} from '../types/feedback'
 import { get, put } from './client'
 
-export function saveFeedback(body: SaveFeedbackRequest, token: string) {
+export function saveFeedback(
+  body: SaveFeedbackRequest,
+  token: string,
+) {
   return put<FeedbackResponse>('/api/feedback', { body, token })
 }
 
 export function getFeedback(
   semester: string,
-  observeeId: number,
+  professorId: string | number,
   token: string,
   signal?: AbortSignal,
 ) {
   const params = new URLSearchParams({
     semester,
-    observee_id: String(observeeId),
+    observee_id: String(professorId),
   })
-  return get<FeedbackResponse>(`/api/feedback?${params.toString()}`, {
-    signal,
-    token,
-  })
+
+  return get<FeedbackResponse>(
+    `/api/feedback?${params.toString()}`,
+    { signal, token },
+  )
 }
 
 export function getFeedbackBreakdown(
@@ -31,6 +35,7 @@ export function getFeedbackBreakdown(
   signal?: AbortSignal,
 ) {
   const params = new URLSearchParams({ semester })
+
   return get<FeedbackBreakdownResponse>(
     `/api/feedback/breakdown?${params.toString()}`,
     { signal, token },

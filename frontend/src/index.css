@@ -1432,6 +1432,10 @@ tbody th {
   color: #bd5d13;
 }
 
+.observation-stage--canceled {
+  color: #8b3a3a;
+}
+
 .screen-eyebrow {
   margin: 0 0 8px;
   color: var(--green-700) !important;
