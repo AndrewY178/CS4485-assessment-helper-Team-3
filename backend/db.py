@@ -8,7 +8,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 pool = pooling.MySQLConnectionPool(
     pool_name="coursebook_pool",
-    pool_size=5,
+    pool_size=20,
     host=os.getenv("DB_HOST", "127.0.0.1"),
     port=int(os.getenv("DB_PORT", 3306)),
     user=os.getenv("MYSQL_USER"),

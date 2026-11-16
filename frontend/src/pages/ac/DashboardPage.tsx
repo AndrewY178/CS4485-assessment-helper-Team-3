@@ -7,6 +7,7 @@ import Stepper from '../../components/Stepper'
 import { ApiError } from '../../api/auth'
 import { getCycleDeadline } from '../../api/cycles'
 import { getDashboard } from '../../api/dashboard'
+import { getTemplate } from '../../api/templates'
 import { getKpis } from '../../api/kpis'
 import { getNoObserverObservees, getObservees, getUncompletedObservees } from '../../api/observees'
 import { generateObserverLists } from '../../api/observers'
@@ -126,6 +127,7 @@ export default function DashboardPage() {
   const [deadline, setDeadline] = useState<CycleDeadlineResponse | null>(null)
   const [uncompleted, setUncompleted] = useState<UncompletedObservee[] | null>(null)
   const [observerAlerts, setObserverAlerts] = useState<DashboardAlert[]>([])
+  const [criteriaCount, setCriteriaCount] = useState<number | null>(null)
   const [runningSelection, setRunningSelection] = useState(false)
   const noticeTimeout = useRef<number | undefined>(undefined)
 
@@ -148,6 +150,10 @@ export default function DashboardPage() {
           if (controller.signal.aborted) return
           setUncompleted(uncompletedRows)
           setObserverAlerts(missingObserverAlerts(missing, observees))
+          const template = await getTemplate(cycle.cycle, token, controller.signal).catch(() => null)
+          if (!controller.signal.aborted) {
+            setCriteriaCount(template ? template.template.criteria.length : 0)
+          }
           try {
             const storedDeadline = await getCycleDeadline(cycle.cycle, controller.signal)
             if (!controller.signal.aborted) setDeadline(storedDeadline)
@@ -321,7 +327,7 @@ export default function DashboardPage() {
 
       <div className="dashboard-bottom">
         <HireLevelTable rows={dashboard?.hireLevels ?? []} />
-        <AlertPanel alerts={observerAlerts} />
+        <AlertPanel alerts={observerAlerts} criteriaCount={criteriaCount} />
       </div>
     </div>
   )

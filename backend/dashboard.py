@@ -9,7 +9,7 @@ from kpis import _cycle_key, _load, _signup_record
 dashboard_bp = Blueprint("dashboard", __name__)
 
 
-def _steps(signed_up, unmatched, missing_observations):
+def _steps(signed_up, unmatched, missing_observations, survey_count):
     completed = [
         signed_up > 0,
         signed_up > 0 and unmatched == 0,
@@ -62,7 +62,11 @@ def _steps(signed_up, unmatched, missing_observations):
         {
             "title": "Survey",
             "date": None,
-            "subtitle": "Survey responses are not stored yet",
+            "subtitle": (
+                "No survey responses are stored for this semester"
+                if survey_count == 0
+                else f"{survey_count} survey response{'s' if survey_count != 1 else ''} stored"
+            ),
             "status": statuses[3],
         },
     ]
@@ -143,9 +147,17 @@ def get_dashboard():
             "courseEndTime": _time_text(row["course_end_time"]),
         })
 
+    survey_count = 0
+    if cycle:
+        survey_rows = query(
+            "SELECT COUNT(*) AS total FROM feedback WHERE semester = %s",
+            (cycle,),
+        )
+        survey_count = int(survey_rows[0]["total"] or 0)
+
     return jsonify(
         cycle=cycle,
-        steps=_steps(len(signups), len(unmatched_rows), missing_observations),
+        steps=_steps(len(signups), len(unmatched_rows), missing_observations, survey_count),
         hireLevels=sorted(ranks.values(), key=lambda item: item["hireLevel"]),
         alerts=alerts,
     )
