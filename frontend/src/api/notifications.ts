@@ -25,6 +25,17 @@ export function getNotifications(token: string) {
   return getAuthenticated<NotificationMessage[]>('/api/notifications', token)
 }
 
+export function getUnreadNotificationCount(token: string) {
+  return getAuthenticated<{ unreadCount: number }>(
+    '/api/notifications/unread-count',
+    token,
+  )
+}
+
+export function markNotificationsRead(token: string) {
+  return patch<{ message: string }>('/api/notifications/read', token)
+}
+
 export function getNotificationRecipients(token: string) {
   return getAuthenticated<NotificationRecipient[]>(
     '/api/notifications/recipients',

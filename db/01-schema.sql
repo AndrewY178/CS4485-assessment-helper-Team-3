@@ -16,10 +16,37 @@ CREATE TABLE notifications (
     title VARCHAR(150) NOT NULL,
     message TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP NULL DEFAULT NULL,
     dismissed_at TIMESTAMP NULL DEFAULT NULL,
     INDEX idx_notifications_inbox (recipient_id, dismissed_at, created_at),
+    INDEX idx_notifications_unread (recipient_id, read_at, dismissed_at),
     FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE observer_escalations (
+    observee_id INT NOT NULL,
+    signup_sem VARCHAR(50) NOT NULL,
+    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (observee_id, signup_sem),
+    FOREIGN KEY (observee_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE deadline_notification_deliveries (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    semester VARCHAR(50) NOT NULL,
+    recipient_id INT NOT NULL,
+    reminder_key VARCHAR(40) NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    email_sent_at TIMESTAMP NULL DEFAULT NULL,
+    email_attempts INT NOT NULL DEFAULT 0,
+    last_email_attempt_at TIMESTAMP NULL DEFAULT NULL,
+    last_email_error TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_deadline_delivery (semester, recipient_id, reminder_key),
+    INDEX idx_deadline_delivery_pending (email_sent_at, created_at),
+    FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE professors (

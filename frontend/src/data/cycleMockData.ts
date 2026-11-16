@@ -11,7 +11,7 @@ export const initialCycleRecords: MockCycleRecord[] = [
   {
     cycle: {
       id: 'cycle-fall-2026',
-      semesterId: '2026-fall',
+      semesterId: 'Fall 2026',
       semesterLabel: 'Fall 2026',
       timezone: 'America/Chicago',
       status: 'draft',
@@ -25,7 +25,7 @@ export const initialCycleRecords: MockCycleRecord[] = [
   {
     cycle: {
       id: 'cycle-spring-2027',
-      semesterId: '2027-spring',
+      semesterId: 'Spring 2027',
       semesterLabel: 'Spring 2027',
       timezone: 'America/Chicago',
       status: 'draft',

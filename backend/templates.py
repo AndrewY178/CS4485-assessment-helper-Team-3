@@ -27,6 +27,14 @@ def _semester_key(semester):
     return (int(match.group(2)), TERM_ORDER[match.group(1)]) if match else (-1, -1)
 
 
+def _semester_editable(semester, cycle, editable_names):
+    if semester not in editable_names or cycle is None:
+        return False
+    # A saved version does not lock the form. AC members can keep adding and
+    # removing criteria until the cycle is closed. Each save stores a new version.
+    return cycle.get("cycle_status") != "closed"
+
+
 # Use the application's semester calendar and only treat a configured following
 # cycle as the next editable semester.
 def _effective_semesters(cycles):
@@ -103,10 +111,8 @@ def _version_response(cursor, semester, version, *, is_editable):
 
 
 def _page_data(cursor, selected_semester=None):
-    cursor.execute("SELECT semester, signup_deadline FROM evaluation_cycles")
+    cursor.execute("SELECT semester, signup_deadline, cycle_status FROM evaluation_cycles")
     cycles = cursor.fetchall()
-    from datetime import datetime
-    now = datetime.utcnow()
     current, next_cycle = _effective_semesters(cycles)
     versions_by_semester = {}
     cursor.execute(
@@ -132,9 +138,8 @@ def _page_data(cursor, selected_semester=None):
     result = []
     for semester in ordered_semesters:
         cycle = next((item for item in cycles if item["semester"] == semester), None)
-        is_current = current and semester == current["semester"]
-        is_editable = semester in editable and cycle and (not is_current or cycle["signup_deadline"] > now)
         latest = versions_by_semester.get(semester)
+        is_editable = _semester_editable(semester, cycle, editable)
         result.append({
             "semester": semester,
             "version": latest["version_number"] if latest else None,
@@ -145,9 +150,8 @@ def _page_data(cursor, selected_semester=None):
         if selected_semester not in semester_names:
             return result, None, None
         cycle = next((item for item in cycles if item["semester"] == selected_semester), None)
-        is_current = current and selected_semester == current["semester"]
-        can_edit = selected_semester in editable and cycle and (not is_current or cycle["signup_deadline"] > now)
         version = versions_by_semester.get(selected_semester)
+        can_edit = _semester_editable(selected_semester, cycle, editable)
         data = _version_response(cursor, selected_semester, version, is_editable=bool(can_edit))
         data["signupDeadline"] = cycle["signup_deadline"].isoformat() if cycle else None
         return result, data, bool(can_edit)

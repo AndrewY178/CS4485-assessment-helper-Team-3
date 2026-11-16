@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { getUnreadNotificationCount } from '../api/notifications'
 import { useAuth, useLogout } from '../context/AuthContext'
 import { AppLink, useNavigation } from '../context/NavigationContext'
 
@@ -75,13 +76,68 @@ function FacultyGroup({
 }
 
 export default function Sidebar() {
-  const { roles, canSwitchRoleForTesting, switchRoleForTesting } = useAuth()
+  const { roles, token, canSwitchRoleForTesting, switchRoleForTesting } = useAuth()
   const logout = useLogout()
-  const { navigate } = useNavigation()
+  const { navigate, pathname } = useNavigation()
   const isACMember = roles.includes('AC Member')
   const isFaculty = roles.includes('Faculty') && !isACMember
   const [observerOpen, setObserverOpen] = useState(true)
   const [observeeOpen, setObserveeOpen] = useState(true)
+  const [unreadState, setUnreadState] = useState<{
+    token: string | null
+    count: number
+  }>({ token: null, count: 0 })
+
+  useEffect(() => {
+    if (!token) return
+    const activeToken = token
+
+    let active = true
+    async function refreshUnreadCount() {
+      try {
+        const result = await getUnreadNotificationCount(activeToken)
+        if (active) setUnreadState({ token: activeToken, count: result.unreadCount })
+      } catch (error) {
+        if (active) {
+          console.error('Unable to refresh unread notification count.', error)
+        }
+      }
+    }
+
+    function handleNotificationsRead() {
+      void refreshUnreadCount()
+    }
+
+    void refreshUnreadCount()
+    window.addEventListener('assessment-notifications-read', handleNotificationsRead)
+    const intervalId = window.setInterval(() => {
+      void refreshUnreadCount()
+    }, 15000)
+
+    return () => {
+      active = false
+      window.removeEventListener('assessment-notifications-read', handleNotificationsRead)
+      window.clearInterval(intervalId)
+    }
+  }, [pathname, token])
+
+  function messagesLabel() {
+    const unreadCount = unreadState.token === token ? unreadState.count : 0
+    return (
+      <>
+        <span>Messages</span>
+        {unreadCount > 0 && (
+          <span
+            aria-label={`${unreadCount} unread messages`}
+            className="sidebar__message-badge"
+            role="status"
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </>
+    )
+  }
 
   function handleRoleSwitch() {
     const nextRole = isACMember ? 'Faculty' : 'AC Member'
@@ -114,10 +170,10 @@ export default function Sidebar() {
         {isACMember && (
           <AppLink
             activeClassName="sidebar__link--active"
-            className="sidebar__link"
+            className="sidebar__link sidebar__messages-link"
             to="/messages"
           >
-            Messages
+            {messagesLabel()}
           </AppLink>
         )}
 
@@ -132,10 +188,10 @@ export default function Sidebar() {
             </AppLink>
             <AppLink
               activeClassName="sidebar__link--active"
-              className="sidebar__link"
+              className="sidebar__link sidebar__messages-link"
               to="/messages"
             >
-              Messages
+              {messagesLabel()}
             </AppLink>
             <AppLink
               activeClassName="sidebar__link--active"

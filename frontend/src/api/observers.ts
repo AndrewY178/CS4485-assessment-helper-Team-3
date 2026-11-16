@@ -63,6 +63,7 @@ export function sendObserverRequests(
   observeeId: string,
   signupSemester: string,
   observerIds: string[],
+  token: string,
 ) {
   return post<SendObserverRequestsResponse>('/api/observers/request', {
     body: {
@@ -70,7 +71,15 @@ export function sendObserverRequests(
       signup_semester: signupSemester,
       observer_ids: observerIds.map(Number),
     },
+    token,
   })
+}
+
+export function requestAdditionalObservers(signupSemester: string, token: string) {
+  return post<{ notifiedCount: number; emailSentCount: number; emailError: string | null }>(
+    '/api/observers/escalate',
+    { body: { signup_semester: signupSemester }, token },
+  )
 }
 
 export function confirmObserver(
@@ -96,7 +105,13 @@ export function acceptObserverRequest(
   selectedDate: string,
   token: string,
 ) {
-  return post<{ meeting_id: number; status: 'accepted'; selected_date: string }>(
+  return post<{
+    meeting_id: number
+    status: 'accepted'
+    selected_date: string
+    emailSent?: boolean
+    emailError?: string | null
+  }>(
     `/api/observer-requests/${meetingId}/accept`,
     { body: { selected_date: selectedDate }, token },
   )

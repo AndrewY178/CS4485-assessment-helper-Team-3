@@ -5,6 +5,7 @@ from flask import Blueprint, g, jsonify
 from api_helpers import error, json_body, transaction
 from auth import ac_required, login_required
 from db import query
+from emailservice import EmailServiceError, send_email
 
 notifications_bp = Blueprint("notifications", __name__)
 
@@ -14,24 +15,42 @@ MAX_MESSAGE_LENGTH = 5000
 
 def create_notifications(recipient_ids, title, message, sender_id=None):
     """Create one notification per recipient within a single transaction."""
+    with transaction() as cursor:
+        return insert_notifications(
+            cursor, recipient_ids, title, message, sender_id
+        )
+
+
+def insert_notifications(cursor, recipient_ids, title, message, sender_id=None):
+    """Insert notifications using an existing transaction cursor."""
     recipients = list(dict.fromkeys(recipient_ids))
     if not recipients:
         return 0
 
-    with transaction() as cursor:
-        cursor.executemany(
-            """
-            INSERT INTO notifications (recipient_id, sender_id, title, message)
-            VALUES (%s, %s, %s, %s)
-            """,
-            [(recipient_id, sender_id, title, message) for recipient_id in recipients],
-        )
+    cursor.executemany(
+        """
+        INSERT INTO notifications (recipient_id, sender_id, title, message)
+        VALUES (%s, %s, %s, %s)
+        """,
+        [(recipient_id, sender_id, title, message) for recipient_id in recipients],
+    )
     return len(recipients)
 
 
 def create_notification(recipient_id, title, message, sender_id=None):
     """Create a single in-app notification for use by other backend features."""
     return create_notifications([recipient_id], title, message, sender_id)
+
+
+def send_notification_email(email, message, *, name=""):
+    if not email or not email.strip():
+        return {"email_sent": False, "email_error": "Recipient email is missing"}
+
+    try:
+        send_email(email, message, to_name=name or "")
+    except EmailServiceError as exc:
+        return {"email_sent": False, "email_error": str(exc)}
+    return {"email_sent": True, "email_error": None}
 
 
 def _active_faculty(user_ids=None):
@@ -67,6 +86,39 @@ def get_notifications():
         (g.user_id,),
     )
     return jsonify(rows)
+
+
+@notifications_bp.get("/api/notifications/unread-count")
+@login_required
+def get_unread_notification_count():
+    rows = query(
+        """
+        SELECT COUNT(*) AS unread_count
+        FROM notifications
+        WHERE recipient_id = %s
+          AND read_at IS NULL
+          AND dismissed_at IS NULL
+        """,
+        (g.user_id,),
+    )
+    return jsonify(unreadCount=int(rows[0]["unread_count"]))
+
+
+@notifications_bp.patch("/api/notifications/read")
+@login_required
+def mark_notifications_read():
+    query(
+        """
+        UPDATE notifications
+        SET read_at = CURRENT_TIMESTAMP
+        WHERE recipient_id = %s
+          AND read_at IS NULL
+          AND dismissed_at IS NULL
+        """,
+        (g.user_id,),
+        fetch=False,
+    )
+    return jsonify(message="Notifications marked as read")
 
 
 @notifications_bp.get("/api/notifications/recipients")

@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../../api/auth'
 import { getObservees } from '../../../api/observees'
-import { confirmObserver, getObserverList, sendObserverRequests } from '../../../api/observers'
+import {
+  confirmObserver,
+  getObserverList,
+  requestAdditionalObservers,
+  sendObserverRequests,
+} from '../../../api/observers'
 import { useAuth } from '../../../context/AuthContext'
 import type { ObserveeResponse, ObserverCandidateResponse } from '../../../types/api'
 
@@ -55,6 +60,8 @@ export default function MyObserversPage() {
   const [notice, setNotice] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [isEscalating, setIsEscalating] = useState(false)
+  const [escalationSent, setEscalationSent] = useState(false)
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [signupSemester, setSignupSemester] = useState<string | null>(null)
@@ -135,8 +142,8 @@ export default function MyObserversPage() {
       setNotice('An observation is already scheduled, so another observer cannot be selected.')
       return
     }
-    if (!userId || !signupSemester) {
-      setNotice('No sign-up was found for your account.')
+    if (!userId || !signupSemester || !token) {
+      setNotice('Your session or sign-up is unavailable. Please sign in again.')
       return
     }
     if (selected.length === 0) {
@@ -146,7 +153,7 @@ export default function MyObserversPage() {
 
     try {
       setIsSending(true)
-      const result = await sendObserverRequests(userId, signupSemester, selected)
+      const result = await sendObserverRequests(userId, signupSemester, selected, token)
       const available = await getObserverList(userId, signupSemester)
       setObservers(available)
       setSelected([])
@@ -171,6 +178,32 @@ export default function MyObserversPage() {
     }
   }
 
+  async function notifyAssessmentCommittee() {
+    if (!signupSemester || !token) {
+      setNotice('Your session is unavailable. Please sign in again.')
+      return
+    }
+
+    try {
+      setIsEscalating(true)
+      const result = await requestAdditionalObservers(signupSemester, token)
+      setEscalationSent(true)
+      setNotice(
+        result.emailError
+          ? 'The Assessment Committee was notified in Messages, but one or more emails could not be sent.'
+          : 'The Assessment Committee has been notified and will help find additional observers.',
+      )
+    } catch (caught) {
+      setNotice(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Unable to notify the Assessment Committee.',
+      )
+    } finally {
+      setIsEscalating(false)
+    }
+  }
+
   async function acceptScheduledObserver(observerId: string, name: string) {
     if (!token || !signupSemester) {
       setNotice('Your session is unavailable. Please sign in again.')
@@ -189,8 +222,12 @@ export default function MyObserversPage() {
         : observers
       setObservers(available)
       setSelected([])
+      const scheduledNotice =
+        `${name} is scheduled for ${formatSelectedDate(result.selected_date)}. Another observer cannot be selected.`
       setNotice(
-        `${name} is scheduled for ${formatSelectedDate(result.selected_date)}. Another observer cannot be selected.`,
+        result.emailError
+          ? `${scheduledNotice} The in-app notifications were saved, but one or more emails could not be sent.`
+          : scheduledNotice,
       )
     } catch (caught) {
       setNotice(
@@ -215,6 +252,13 @@ export default function MyObserversPage() {
 
   const scheduled = observers.filter((observer) => observer.status === 'confirmed')
   const awaitingAccept = observers.filter((observer) => observer.status === 'accepted')
+  const invitedObservers = observers.filter((observer) =>
+    ['pending', 'accepted', 'declined', 'expired'].includes(observer.status ?? ''),
+  )
+  const allInvitedObserversDeclined = invitedObservers.length > 0
+    && invitedObservers.every((observer) =>
+      observer.status === 'declined' || observer.status === 'expired',
+    )
   const isScheduled = scheduled.length > 0
   const scheduledName = scheduled.map((observer) => observer.professor_name ?? '—').join(', ')
   const scheduledDate = scheduled
@@ -291,10 +335,7 @@ export default function MyObserversPage() {
                       />
                     </td>
                     <td>{name}</td>
-                    <td>
-                      {/* TODO: needs backend field */}
-                      —
-                    </td>
+                    <td>{observer.teaches || '—'}</td>
                     <td>
                       {requestStatusLabel(observer)}
                       {canAccept && (
@@ -326,7 +367,23 @@ export default function MyObserversPage() {
         </button>
       </footer>
 
-      <p className="observer-list-help">Nobody confirmed? <a href="mailto:assessment@utdallas.edu">Let the Assessment Committee know</a></p>
+      {allInvitedObserversDeclined && !isScheduled && (
+        <p className="observer-list-help">
+          {escalationSent
+            ? 'The Assessment Committee has been notified.'
+            : 'All invited observers declined or their requests expired.'}{' '}
+          {!escalationSent && (
+            <button
+              className="button button--outline"
+              disabled={isEscalating}
+              onClick={notifyAssessmentCommittee}
+              type="button"
+            >
+              {isEscalating ? 'Notifying...' : 'Ask the Assessment Committee for help'}
+            </button>
+          )}
+        </p>
+      )}
     </section>
   )
 }

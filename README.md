@@ -118,6 +118,7 @@ The backend's reusable `emailservice.py` sends emails through EmailJS. AC-create
    EMAILJS_PASSWORD_TEMPLATE_ID=your_password_email_template_id
    EMAILJS_REMINDER_TEMPLATE_ID=your_reminder_template_id
    REMINDER_TEST_MODE=true
+   DEADLINE_WORKER_INTERVAL_SECONDS=60
    FRONTEND_URL=http://localhost:5173
    ```
 
@@ -126,7 +127,7 @@ The backend's reusable `emailservice.py` sends emails through EmailJS. AC-create
    `REMINDER_TEST_MODE=true` (the Compose default) sends one personalized test message per eligible faculty member to `VITE_EMAILJS_TEST_RECIPIENT`; each message identifies its intended recipient. Only set `REMINDER_TEST_MODE=false` when ready to email faculty directly. `FRONTEND_URL` must be the frontend's origin (use your deployed site URL outside local development); it is sent with backend EmailJS requests. Restart the backend container after editing `.env`:
 
    ```bash
-   docker compose up -d --force-recreate backend
+   docker compose up -d --force-recreate backend deadline-worker
    ```
 3. While running the frontend with `npm run dev`, log in as an AC Member and press **Send reminders**. The backend determines eligibility from sign-up cycles and submitted reports, creates an in-app notification in each recipient's Messages inbox, and sends one personalized email per eligible faculty member. In test mode, emails go to the test inbox while in-app notifications still go to the intended faculty accounts. EmailJS allows one send request per second, so a batch may take a little time. Faculty can open **Messages** to view and dismiss their notifications.
 
@@ -134,9 +135,29 @@ The current cycle is the newest semester with sign-up records; the previous cycl
 
 ### In-app notifications
 
-AC Members can open **Messages** from the sidebar, compose a titled message, and send it to selected faculty or all active faculty. Notifications are stored in the database; recipients see them in their own Messages inbox and can dismiss them. Dismissal only hides a message for that recipient. Existing databases must apply `db/migrations/20261107_add_notifications.sql` once; fresh databases create the table from `db/01-schema.sql`.
+AC Members can open **Messages** from the sidebar, compose a titled message, and send it to selected faculty or all active faculty. The sidebar displays a live unread-count badge beside **Messages** and refreshes it every 15 seconds. Opening the inbox marks its current notifications as read; recipients can also dismiss notifications, which only hides them for that recipient. Existing databases must apply `db/migrations/20261107_add_notifications.sql` and `db/migrations/20261116_add_notification_read_tracking.sql`; fresh databases create the required columns from `db/01-schema.sql`.
 
 Existing databases must be upgraded before deploying the email verification check. Back up the database, then apply `db/migrations/20261103_add_email_verification.sql`. It marks existing accounts with passwords as verified so they can continue to log in; newly invited accounts remain unverified until they use their setup link.
+
+### Observer workflow and deadline notifications
+
+Observer workflow events create an inbox notification and attempt an email to the affected faculty member:
+
+- The observee is notified when the AC approves the observer list.
+- Selected observers are notified when requests are sent; sending requests requires the observee's authenticated session.
+- The observee is notified when an observer accepts a date.
+- When the observee confirms an observer, that observer is notified and every other person who was actually sent a request receives a not-selected notice.
+- After all invited observers decline or their requests expire, the observee can ask the AC for additional observers from the **My Observers** page. The AC is notified in Messages and by email.
+
+The `deadline-worker` Compose service checks configured cycle dates once per minute by default. It sends AC Members reminders 7 days before, 1 day before, and on signup, observation, and feedback deadlines. When the observation phase closes, observees and confirmed observers who have not submitted feedback receive an inbox survey invitation and the same reminder cadence before the feedback deadline. A unique delivery record prevents duplicate inbox notices after worker restarts; failed emails are retried.
+
+The cycle setup page saves deadlines through `/api/schedule`. Set `REMINDER_TEST_MODE=false` only when ready to email the real recipients; the default routes deadline reminder emails to the configured test inbox, while inbox notifications still go to their intended accounts. Start or rebuild both backend services with:
+
+```bash
+docker compose up -d --build
+```
+
+For an existing database, back it up and apply the migrations in order if they have not already been applied: `20261102_add_signup_columns.sql`, `20261103_add_email_verification.sql`, `20261107_add_notifications.sql`, `20261115_add_workflow_notifications.sql`, and `20261116_add_notification_read_tracking.sql`. The workflow migration adds missing tables and the observee-status and meeting-course columns without deleting existing data; it links legacy meetings to courses when the old course-identifying columns are present. Fresh databases receive these tables from `db/01-schema.sql`.
 
 ## Project Structure
 

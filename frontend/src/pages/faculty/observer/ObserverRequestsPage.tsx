@@ -137,8 +137,10 @@ export default function ObserverRequestsPage() {
     }
 
     try {
+      let emailError: string | null | undefined
       if (status === 'accepted') {
-        await acceptObserverRequest(meetingId, selectedDate, token)
+        const result = await acceptObserverRequest(meetingId, selectedDate, token)
+        emailError = result.emailError
       } else {
         await declineObserverRequest(meetingId, token)
       }
@@ -146,7 +148,7 @@ export default function ObserverRequestsPage() {
       const name = request.observee_name ?? '—'
       setNotice(
         status === 'accepted'
-          ? `You confirmed ${name}'s request.`
+          ? `You confirmed ${name}'s request.${emailError ? ' The in-app notification was saved, but the email could not be sent.' : ''}`
           : `You declined ${name}'s request.`,
       )
     } catch (caught) {
@@ -203,11 +205,14 @@ export default function ObserverRequestsPage() {
                     <fieldset className="request-date-picker">
                       <legend>Pick a date</legend>
                       <div className="request-date-options">
-                        {request.offered_dates.length === 0 && <p>—</p>}
+                        {request.offered_dates.length === 0 && (
+                          <p>No dates were offered for this request.</p>
+                        )}
                         {request.offered_dates.map((date) => (
                           <label
                             className={`date-option${selectedDate === date ? ' date-option--selected' : ''}`}
                             key={date}
+                            onClick={() => chooseDate(request.meeting_id, date)}
                           >
                             <input
                               checked={selectedDate === date}

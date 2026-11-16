@@ -1,10 +1,10 @@
-import { cycleSteps } from '../data/mockData'
+import type { DashboardStep } from '../types/api'
 import { CheckIcon } from './Icons'
 
-export default function Stepper() {
+export default function Stepper({ steps }: { steps: DashboardStep[] }) {
   return (
     <ol aria-label="Observation cycle progress" className="stepper">
-      {cycleSteps.map((step, index) => (
+      {steps.map((step, index) => (
         <li
           className={`stepper__step stepper__step--${step.status}`}
           key={step.title}
@@ -17,7 +17,7 @@ export default function Stepper() {
                 index + 1
               )}
             </span>
-            {index < cycleSteps.length - 1 && (
+            {index < steps.length - 1 && (
               <span className="stepper__connector" aria-hidden="true" />
             )}
           </div>

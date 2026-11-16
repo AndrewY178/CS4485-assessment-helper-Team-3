@@ -66,6 +66,36 @@ class NotificationEndpointTests(unittest.TestCase):
         )
         self.assertEqual(mock_query.call_args.args[1], (42,))
 
+    @patch("notifications.query", return_value=[{"unread_count": 3}])
+    @patch("auth._current_session", return_value={"session_id": 1, "user_id": 42})
+    def test_unread_count_is_scoped_to_logged_in_user(self, _mock_session, mock_query):
+        response = self.client.get(
+            "/api/notifications/unread-count",
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"unreadCount": 3})
+        self.assertIn("read_at IS NULL", mock_query.call_args.args[0])
+        self.assertEqual(mock_query.call_args.args[1], (42,))
+
+    @patch("notifications.query", return_value=None)
+    @patch("auth._current_session", return_value={"session_id": 1, "user_id": 42})
+    def test_mark_read_updates_only_logged_in_users_unread_notifications(
+        self, _mock_session, mock_query
+    ):
+        response = self.client.patch(
+            "/api/notifications/read",
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["message"], "Notifications marked as read")
+        self.assertIn("recipient_id = %s", mock_query.call_args.args[0])
+        self.assertIn("read_at IS NULL", mock_query.call_args.args[0])
+        self.assertEqual(mock_query.call_args.args[1], (42,))
+        self.assertFalse(mock_query.call_args.kwargs["fetch"])
+
     @patch("notifications.create_notifications", return_value=2)
     @patch(
         "notifications._active_faculty",
