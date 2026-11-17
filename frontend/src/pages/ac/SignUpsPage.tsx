@@ -61,9 +61,7 @@ export default function SignUpsPage() {
     }
   }, [token])
 
-  const rankOptions = useMemo(() => {
-    return [...new Set(signUpRequests.map((request) => request.level).filter(Boolean))].sort()
-  }, [signUpRequests])
+  const rankOptions = ['Assistant', 'Associate', 'Full']
 
   async function changeRank(request: SignUpRequest, profRank: string) {
     if (!profRank || profRank === request.level) return
