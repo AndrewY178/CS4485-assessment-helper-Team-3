@@ -11,6 +11,7 @@ from flask import Blueprint, g, jsonify, request
 
 from api_helpers import error, json_body, transaction
 from auth import faculty_required
+from deadlines import deadline_block
 
 signup_dates_bp = Blueprint("signup_dates", __name__)
 
@@ -90,6 +91,9 @@ def save_signup_dates():
     signup_semester = str(body.get("signup_semester") or "").strip()
     if not signup_semester:
         return error("signup_semester is required", 400)
+    blocked = deadline_block("save_signup_dates", signup_semester)
+    if blocked:
+        return blocked
     dates = _parse_dates(body.get("dates"))
     if dates is None:
         return error("dates must be today or a later day", 400)

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import CycleTimelinePreview from '../../components/cycle/CycleTimelinePreview'
 import DeadlineField from '../../components/cycle/DeadlineField'
 import { ApiError } from '../../api/auth'
-import { saveCycleDeadline } from '../../api/cycles'
 import {
   getCurrentSemester,
   getEvaluationCycles,
@@ -193,14 +192,6 @@ export default function CycleSetupPage() {
         observationDeadline: new Date(form.observationDeadline).toISOString(),
         feedbackDeadline: new Date(form.feedbackDeadline).toISOString(),
       }, token)
-      await saveCycleDeadline(
-        {
-          semester: selectedRecord.semesterLabel,
-          signup_deadline: form.signupDeadline.slice(0, 10),
-          observation_deadline: form.observationDeadline.slice(0, 10),
-        },
-        token,
-      )
       const savedForm = cycleToForm(savedCycle)
       setRecords((current) => current.map((record) => (
         record.semesterId === savedCycle.semesterId ? savedCycle : record

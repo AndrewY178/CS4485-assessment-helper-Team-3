@@ -209,18 +209,12 @@ export type ObserveeStatus =
   | 'invitations_sent'
   | 'manual'
 
-// GET /api/cycles/deadline
+// GET /api/cycles/deadline (read from evaluation_cycles, dates in Central time)
 export interface CycleDeadlineResponse {
   signup_deadline: string
   observation_deadline: string | null
   days_remaining: number
   is_past: boolean
-}
-
-export interface SaveCycleDeadlineRequest {
-  semester: string
-  signup_deadline: string
-  observation_deadline: string
 }
 
 export interface FacultyCourse {

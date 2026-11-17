@@ -5,6 +5,7 @@ from flask import Blueprint, g, jsonify, request
 from api_helpers import error, json_body
 from auth import _roles_for, ac_required, faculty_required, login_required
 from db import query
+from deadlines import deadline_block
 
 feedback_bp = Blueprint("feedback", __name__)
 
@@ -20,6 +21,9 @@ def save_feedback():
     if not isinstance(semester, str) or not semester.strip():
         return error("semester is required", 400)
     semester = semester.strip()
+    blocked = deadline_block("submit_feedback", semester)
+    if blocked:
+        return blocked
 
     semester_role = body.get("semester_role", "observee")
     if not isinstance(semester_role, str) or semester_role not in SEMESTER_ROLES:

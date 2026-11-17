@@ -12,6 +12,7 @@ from auth import ac_required, auth_bp, faculty_required
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
 from observer_approval import observer_approval_bp
+from deadlines import deadline_block
 from kpis import kpis_bp
 from dashboard import dashboard_bp
 from professor_rank import professor_rank_bp
@@ -487,6 +488,9 @@ def _require_signup_semester():
     return signup_semester, None
 
 
+# Sign-up and observation deadlines for a semester, read from evaluation_cycles (the AC sets them on the
+# Cycle Setup page). They are stored in UTC, so they are converted to Central time here so the dates
+# match what the AC entered.
 @app.route("/api/cycles/deadline")
 def get_cycle_deadline():
     signup_semester, failure = _require_signup_semester()
@@ -496,10 +500,15 @@ def get_cycle_deadline():
     rows = query(
         """
         SELECT
-            signup_deadline,
-            observation_deadline,
-            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
-        FROM cycles
+            DATE(COALESCE(CONVERT_TZ(signup_deadline, '+00:00', 'America/Chicago'), signup_deadline))
+                AS signup_deadline,
+            DATE(COALESCE(CONVERT_TZ(observation_deadline, '+00:00', 'America/Chicago'), observation_deadline))
+                AS observation_deadline,
+            DATEDIFF(
+                DATE(COALESCE(CONVERT_TZ(signup_deadline, '+00:00', 'America/Chicago'), signup_deadline)),
+                DATE(COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', 'America/Chicago'), UTC_TIMESTAMP()))
+            ) AS days_remaining
+        FROM evaluation_cycles
         WHERE semester = %s
         """,
         (signup_semester,),
@@ -507,58 +516,6 @@ def get_cycle_deadline():
     if not rows:
         return jsonify(error="No deadline is stored for that semester"), 404
 
-    days_remaining = int(rows[0]["days_remaining"])
-    return jsonify(
-        signup_deadline=_iso_date(rows[0]["signup_deadline"]),
-        observation_deadline=_iso_date(rows[0]["observation_deadline"]),
-        days_remaining=days_remaining,
-        is_past=days_remaining < 0,
-    )
-
-
-def _calendar_day(value):
-    if not isinstance(value, str) or not value.strip():
-        return None
-    try:
-        return date.fromisoformat(value.strip()[:10])
-    except ValueError:
-        return None
-
-
-@app.route("/api/cycles/deadline", methods=["PUT"])
-@ac_required
-def save_cycle_deadline():
-    body = request.get_json(silent=True) or {}
-    semester = str(body.get("semester") or "").strip()
-    signup_deadline = _calendar_day(body.get("signup_deadline"))
-    observation_deadline = _calendar_day(body.get("observation_deadline"))
-    if not semester or signup_deadline is None or observation_deadline is None:
-        return jsonify(error="semester, signup_deadline, and observation_deadline are required"), 400
-    if observation_deadline < signup_deadline:
-        return jsonify(error="observation_deadline must be on or after signup_deadline"), 400
-
-    query(
-        """
-        INSERT INTO cycles (semester, signup_deadline, observation_deadline)
-        VALUES (%s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            signup_deadline = VALUES(signup_deadline),
-            observation_deadline = VALUES(observation_deadline)
-        """,
-        (semester, signup_deadline, observation_deadline),
-        fetch=False,
-    )
-    rows = query(
-        """
-        SELECT
-            signup_deadline,
-            observation_deadline,
-            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
-        FROM cycles
-        WHERE semester = %s
-        """,
-        (semester,),
-    )
     days_remaining = int(rows[0]["days_remaining"])
     return jsonify(
         signup_deadline=_iso_date(rows[0]["signup_deadline"]),
@@ -778,6 +735,9 @@ def send_observer_requests():
         return jsonify(error="observee_id and observer_ids must be integers"), 400
     if observee_id != g.user_id:
         return jsonify(error="You may only send requests for your own sign-up"), 403
+    blocked = deadline_block("send_requests", signup_semester)
+    if blocked:
+        return blocked
 
     selected = query(
         """
@@ -1099,6 +1059,9 @@ def accept_observer_request(meeting_id):
     current = _pending_request_for_observer(g.user_id, meeting_id)
     if current is None:
         return jsonify(error="Observation request was not found"), 404
+    blocked = deadline_block("respond_to_request", current["signup_sem"])
+    if blocked:
+        return blocked
     if current["observee_id"] == g.user_id:
         return jsonify(error="You cannot accept your own observation request"), 409
     if current["status"] != "pending":
@@ -1269,6 +1232,9 @@ def decline_observer_request(meeting_id):
     current = _pending_request_for_observer(g.user_id, meeting_id)
     if current is None:
         return jsonify(error="Observation request was not found"), 404
+    blocked = deadline_block("respond_to_request", current["signup_sem"])
+    if blocked:
+        return blocked
     if current["status"] != "pending":
         return jsonify(error="This request is no longer pending"), 409
     if current["sent_at"] is not None:
@@ -1327,6 +1293,9 @@ def confirm_observer():
         return jsonify(error="signup_semester and observer_id are required"), 400
     if observer_id == g.user_id:
         return jsonify(error="You cannot accept yourself as the observer"), 409
+    blocked = deadline_block("confirm_observer", signup_semester)
+    if blocked:
+        return blocked
 
     selected = query(
         """

@@ -31,6 +31,23 @@ function upcomingDates(lastDay: string): string[] {
   return dates
 }
 
+function todayIso() {
+  return new Date().toLocaleDateString('en-CA')
+}
+
+// What the status card says about the cycle: the sign-up deadline while it is open, otherwise that it
+// has passed plus the next upcoming deadline.
+function deadlineSummary(deadline: CycleDeadlineResponse | null) {
+  if (!deadline) return 'Sign-up deadline is not available.'
+  if (!deadline.is_past) return `Sign up by ${formatStoredDate(deadline.signup_deadline)}`
+  const observation = deadline.observation_deadline
+  if (!observation) return 'Sign-up deadline has passed.'
+  if (observation.slice(0, 10) >= todayIso()) {
+    return `Sign-up deadline has passed. Next deadline: observations due ${formatStoredDate(observation)}.`
+  }
+  return 'Sign-up and observation deadlines have passed.'
+}
+
 function formatStoredDate(value: string) {
   const parsed = Date.parse(`${value.slice(0, 10)}T00:00:00Z`)
   if (Number.isNaN(parsed)) return value
@@ -239,9 +256,7 @@ export default function FacultyStatusPage() {
           <h1>Due this semester</h1>
           <p>{rankSummary}</p>
           <p className="evaluation-status-card__deadline">
-            {deadline
-              ? `Sign up by ${formatStoredDate(deadline.signup_deadline)}`
-              : 'Sign-up deadline is not available.'}
+            {deadlineSummary(deadline)}
           </p>
         </section>
 
