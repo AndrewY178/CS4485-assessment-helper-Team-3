@@ -82,7 +82,8 @@ SELECT
         ELSE 'Fall 2026' 
     END
 FROM users
-WHERE username LIKE 'prof_%';
+WHERE username LIKE 'prof_%'
+  AND username NOT IN ('prof_08', 'prof_09');
 
 -- Add courses and associate each course with a professor.
 -- Times use 24-hour format: HH:MM:SS.
@@ -319,8 +320,11 @@ WHERE username = 'prof_11';
 UPDATE observees o
 JOIN courses c
     ON c.prof_id = o.observee_id
+JOIN users u
+    ON u.id = o.observee_id
 SET o.signup_course = c.course_id
-WHERE c.prof_id IS NOT NULL;
+WHERE c.prof_id IS NOT NULL
+  AND u.username NOT IN ('prof_08', 'prof_09');
 
 -- Assign each professor the course level represented by the
 -- first digit of the course number.
@@ -374,17 +378,20 @@ WHERE username = 'dev_user';
 INSERT INTO course_levels (prof_id, course_level)
 SELECT id, '4000' FROM users WHERE username = 'dev_user';
 
-INSERT INTO observees (observee_id, hiring_sem, signup_sem, signup_course)
-SELECT u.id, 'Fall 2024', 'Fall 2026', c.course_id
-FROM users u
-JOIN courses c ON c.prof_id = u.id AND c.semester = 'Fall 2026'
-WHERE u.username = 'dev_user';
+-- INSERT INTO observees (observee_id, hiring_sem, signup_sem, signup_course)
+-- SELECT u.id, 'Fall 2024', 'Fall 2026', c.course_id
+-- FROM users u
+-- JOIN courses c ON c.prof_id = u.id AND c.semester = 'Fall 2026'
+-- WHERE u.username = 'dev_user';
 
 -- add meetings for all the professors
 INSERT INTO meetings (course_id)
 SELECT o.signup_course
 FROM observees o
 WHERE o.signup_course IS NOT NULL
+  AND o.observee_id NOT IN (
+      SELECT id FROM users WHERE username IN ('prof_08', 'prof_09')
+  )
   AND NOT EXISTS (
       SELECT 1
       FROM meetings m
@@ -392,14 +399,14 @@ WHERE o.signup_course IS NOT NULL
   );
 
 -- add evaluation cycle data for Fall 2026
-INSERT INTO evaluation_cycles (semester, cycle_status, signup_deadline, observation_deadline, feedback_deadline)
-VALUES (
-    'Fall 2026',
-    'draft',
-    '2026-09-15 23:59:59',
-    '2026-12-15 23:59:59',
-    '2026-12-20 23:59:59'
-);
+-- INSERT INTO evaluation_cycles (semester, cycle_status, signup_deadline, observation_deadline, feedback_deadline)
+-- VALUES (
+--     'Fall 2026',
+--     'draft',
+--     '2026-09-15 23:59:59',
+--     '2026-12-15 23:59:59',
+--     '2026-12-20 23:59:59'
+-- );
           
 -- ---------------------------------------------------------------------------
 -- Sample data for the observer request flow (accept / reject)
@@ -416,28 +423,28 @@ SET @p07 = (SELECT id FROM users WHERE username = 'prof_07');
 SET @p08 = (SELECT id FROM users WHERE username = 'prof_08');
 SET @p09 = (SELECT id FROM users WHERE username = 'prof_09');
 SET @dev = (SELECT id FROM users WHERE username = 'dev_user');
-
--- The meetings for these sign-ups were already created above ("add meetings for all the
--- professors"), so each scenario looks its meeting up instead of inserting a second one.
--- Every scenario's observer list was approved, so those sign-ups are marked 'approved'.
-UPDATE observees
-SET status = 'approved'
-WHERE signup_sem = 'Fall 2026'
-  AND observee_id IN (@p03, @p04, @p06, @p07);
-
+-- 
+-- -- The meetings for these sign-ups were already created above ("add meetings for all the
+-- -- professors"), so each scenario looks its meeting up instead of inserting a second one.
+-- -- Every scenario's observer list was approved, so those sign-ups are marked 'approved'.
+-- UPDATE observees
+-- SET status = 'approved'
+-- WHERE signup_sem = 'Fall 2026'
+--   AND observee_id IN (@p03, @p04, @p06, @p07);
+-- 
 -- Scenario 1: AC approved two observers for prof_03, the observee has not sent the requests yet
 INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
     (@p03, 'Fall 2026', '2026-11-16'),
     (@p03, 'Fall 2026', '2026-11-18'),
     (@p03, 'Fall 2026', '2026-11-23');
-
-SET @m1 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
-           WHERE o.observee_id = @p03 AND o.signup_sem = 'Fall 2026');
-
-INSERT INTO observation_requests (meeting_id, observer_id, status) VALUES
-    (@m1, @p04, 'approved'),
-    (@m1, @p05, 'approved');
-
+-- 
+-- SET @m1 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+--            WHERE o.observee_id = @p03 AND o.signup_sem = 'Fall 2026');
+-- 
+-- INSERT INTO observation_requests (meeting_id, observer_id, status) VALUES
+--     (@m1, @p04, 'approved'),
+--     (@m1, @p05, 'approved');
+-- 
 -- Scenario 2: prof_04 sent requests an hour ago. prof_03 declined, prof_05 accepted and picked
 -- a date, dev_user has not answered yet (once the observer's pending-requests list exists,
 -- logging in as dev@example.com should show this request)
@@ -445,46 +452,46 @@ INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
     (@p04, 'Fall 2026', '2026-11-17'),
     (@p04, 'Fall 2026', '2026-11-19'),
     (@p04, 'Fall 2026', '2026-11-24');
-
-SET @m2 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
-           WHERE o.observee_id = @p04 AND o.signup_sem = 'Fall 2026');
-
-INSERT INTO observation_requests (meeting_id, observer_id, status, selected_date, sent_at, responded_at) VALUES
-    (@m2, @p03, 'declined', NULL,         NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 30 MINUTE),
-    (@m2, @p05, 'accepted', '2026-11-19', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 20 MINUTE),
-    (@m2, @dev, 'pending',  NULL,         NOW() - INTERVAL 1 HOUR, NULL);
-
--- Scenario 3: prof_06 already confirmed prof_07, so the meeting has its observer and date.
--- prof_08 had also accepted but was not selected, prof_09 declined
+-- 
+-- SET @m2 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+--            WHERE o.observee_id = @p04 AND o.signup_sem = 'Fall 2026');
+-- 
+-- INSERT INTO observation_requests (meeting_id, observer_id, status, selected_date, sent_at, responded_at) VALUES
+--     (@m2, @p03, 'declined', NULL,         NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 30 MINUTE),
+--     (@m2, @p05, 'accepted', '2026-11-19', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 20 MINUTE),
+--     (@m2, @dev, 'pending',  NULL,         NOW() - INTERVAL 1 HOUR, NULL);
+-- 
+-- -- Scenario 3: prof_06 already confirmed prof_07, so the meeting has its observer and date.
+-- -- prof_08 had also accepted but was not selected, prof_09 declined
 INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
     (@p06, 'Fall 2026', '2026-11-17'),
     (@p06, 'Fall 2026', '2026-11-19'),
     (@p06, 'Fall 2026', '2026-11-24');
-
-SET @m3 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
-           WHERE o.observee_id = @p06 AND o.signup_sem = 'Fall 2026');
-
-UPDATE meetings
-SET observer_id = @p07, meeting_date = '2026-11-17'
-WHERE meeting_id = @m3;
-
-INSERT INTO observation_requests (meeting_id, observer_id, status, selected_date, sent_at, responded_at) VALUES
-    (@m3, @p07, 'confirmed',    '2026-11-17', NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY),
-    (@m3, @p08, 'not_selected', '2026-11-19', NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY),
-    (@m3, @p09, 'declined',     NULL,         NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY);
-
--- Scenario 4: prof_07's request to prof_09 was sent 3 days ago and never answered. It is still
--- 'pending' in the table but is past the 48 hours, so the app should treat it as expired
-INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
-    (@p07, 'Fall 2026', '2026-11-16'),
-    (@p07, 'Fall 2026', '2026-11-18');
-
-SET @m4 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
-           WHERE o.observee_id = @p07 AND o.signup_sem = 'Fall 2026');
-
-INSERT INTO observation_requests (meeting_id, observer_id, status, sent_at) VALUES
-    (@m4, @p09, 'pending', NOW() - INTERVAL 3 DAY);
-
+-- 
+-- SET @m3 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+--            WHERE o.observee_id = @p06 AND o.signup_sem = 'Fall 2026');
+-- 
+-- UPDATE meetings
+-- SET observer_id = @p07, meeting_date = '2026-11-17'
+-- WHERE meeting_id = @m3;
+-- 
+-- INSERT INTO observation_requests (meeting_id, observer_id, status, selected_date, sent_at, responded_at) VALUES
+--     (@m3, @p07, 'confirmed',    '2026-11-17', NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY),
+--     (@m3, @p08, 'not_selected', '2026-11-19', NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY),
+--     (@m3, @p09, 'declined',     NULL,         NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY);
+-- 
+-- -- Scenario 4: prof_07's request to prof_09 was sent 3 days ago and never answered. It is still
+-- -- 'pending' in the table but is past the 48 hours, so the app should treat it as expired
+-- INSERT INTO signup_dates (observee_id, signup_sem, offered_date) VALUES
+--     (@p07, 'Fall 2026', '2026-11-16'),
+--     (@p07, 'Fall 2026', '2026-11-18');
+-- 
+-- SET @m4 = (SELECT m.meeting_id FROM meetings m JOIN observees o ON o.signup_course = m.course_id
+--            WHERE o.observee_id = @p07 AND o.signup_sem = 'Fall 2026');
+-- 
+-- INSERT INTO observation_requests (meeting_id, observer_id, status, sent_at) VALUES
+--     (@m4, @p09, 'pending', NOW() - INTERVAL 3 DAY);
+-- 
 -- Offered dates for the remaining seeded observees. Each date matches the
 -- course meeting days listed above so every seeded professor can exercise signup.
 INSERT INTO signup_dates (observee_id, signup_sem, offered_date)
@@ -497,18 +504,9 @@ UNION ALL SELECT id, 'Fall 2026', '2026-11-24' FROM users WHERE username = 'prof
 UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'prof_05'
 UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'prof_05'
 UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'prof_05'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-17' FROM users WHERE username = 'prof_08'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-19' FROM users WHERE username = 'prof_08'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-24' FROM users WHERE username = 'prof_08'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'prof_09'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'prof_09'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'prof_09'
 UNION ALL SELECT id, 'Spring 2026', '2026-03-10' FROM users WHERE username = 'prof_10'
 UNION ALL SELECT id, 'Spring 2026', '2026-03-12' FROM users WHERE username = 'prof_10'
 UNION ALL SELECT id, 'Spring 2026', '2026-03-17' FROM users WHERE username = 'prof_10'
 UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'prof_11'
 UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'prof_11'
 UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'prof_11'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-16' FROM users WHERE username = 'dev_user'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-18' FROM users WHERE username = 'dev_user'
-UNION ALL SELECT id, 'Fall 2026', '2026-11-23' FROM users WHERE username = 'dev_user';
