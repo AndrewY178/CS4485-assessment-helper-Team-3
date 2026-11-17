@@ -84,6 +84,26 @@ def _utc_text(value):
     return value.strftime("%b %d, %Y at %H:%M UTC")
 
 
+def cycle_days(semester):
+    """A semester's deadlines as Central-time calendar days (datetime.date), or None if it has no cycle row.
+
+    Keys: signup, observation, feedback. The deadlines are stored in UTC, so they are converted to the
+    day the AC entered on the Cycle Setup page.
+    """
+    rows = query(
+        """
+        SELECT
+            DATE(COALESCE(CONVERT_TZ(signup_deadline, '+00:00', 'America/Chicago'), signup_deadline)) AS signup,
+            DATE(COALESCE(CONVERT_TZ(observation_deadline, '+00:00', 'America/Chicago'), observation_deadline)) AS observation,
+            DATE(COALESCE(CONVERT_TZ(feedback_deadline, '+00:00', 'America/Chicago'), feedback_deadline)) AS feedback
+        FROM evaluation_cycles
+        WHERE semester = %s
+        """,
+        (semester,),
+    )
+    return rows[0] if rows else None
+
+
 def check_deadline(action, semester, now=None):
     """Return None if the action is allowed, or a dict describing the first rule it breaks.
 
