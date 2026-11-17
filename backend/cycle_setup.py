@@ -1,6 +1,7 @@
 """Assessment-cycle setup endpoints."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify, request
 
@@ -39,6 +40,41 @@ CYCLE_UPSERT = """
         observation_deadline = VALUES(observation_deadline),
         feedback_deadline = VALUES(feedback_deadline)
 """
+
+
+CHICAGO = ZoneInfo("America/Chicago")
+
+
+def calendar_day(value):
+    """Calendar date in the cycle timezone. Stored datetimes are UTC."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(CHICAGO).date()
+    if isinstance(value, date):
+        return value
+    return None
+
+
+def sync_cycles_table(semester, signup_deadline, observation_deadline):
+    """Keep the older cycles table aligned with the evaluation cycle dates."""
+    signup_day = calendar_day(signup_deadline)
+    observation_day = calendar_day(observation_deadline)
+    if signup_day is None or observation_day is None:
+        return
+    query(
+        """
+        INSERT INTO cycles (semester, signup_deadline, observation_deadline)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            signup_deadline = VALUES(signup_deadline),
+            observation_deadline = VALUES(observation_deadline)
+        """,
+        (semester, signup_day, observation_day),
+        fetch=False,
+    )
 
 
 def _utc_iso(value):
@@ -105,6 +141,7 @@ def save_schedule(semester):
         (semester, "draft", *deadlines),
         fetch=False,
     )
+    sync_cycles_table(semester, deadlines[0], deadlines[1])
     rows = query(CYCLE_BY_SEMESTER_SELECT, (semester,))
     if not rows:
         return jsonify(error="Saved cycle could not be retrieved"), 500

@@ -27,8 +27,7 @@ from current_semester import current_semester_bp
 from templates import templates_bp
 from db import query, pool, transaction
 from datetime import datetime, timezone
-from cycle_setup import cycle_setup_bp
-from current_semester import current_semester_bp
+from cycle_setup import calendar_day, cycle_setup_bp
 from evaluations import evaluations_bp
 
 EMAILJS_RATE_LIMIT_SECONDS = 1.1
@@ -117,7 +116,15 @@ SELECT DISTINCT
     p.professor_id AS observer_id,
     p.professor_name,
     p.professor_department,
-    0 AS currentObservationCount
+    (
+        SELECT COUNT(DISTINCT assigned.meeting_id)
+        FROM observation_requests assigned
+        JOIN meetings assigned_meeting ON assigned_meeting.meeting_id = assigned.meeting_id
+        JOIN courses assigned_course ON assigned_course.course_id = assigned_meeting.course_id
+        WHERE assigned.observer_id = p.professor_id
+          AND assigned.status IN ('accepted', 'confirmed')
+          AND assigned_course.semester = s.semester
+    ) AS currentObservationCount
 FROM selected_observee s
 JOIN courses matching
     ON matching.semester = s.semester
@@ -145,6 +152,15 @@ AND o.signup_sem = s.semester
         AND busy.course_start_time < s.course_end_time
         AND busy.course_end_time > s.course_start_time
   )
+  AND (
+      SELECT COUNT(DISTINCT assigned.meeting_id)
+      FROM observation_requests assigned
+      JOIN meetings assigned_meeting ON assigned_meeting.meeting_id = assigned.meeting_id
+      JOIN courses assigned_course ON assigned_course.course_id = assigned_meeting.course_id
+      WHERE assigned.observer_id = p.professor_id
+        AND assigned.status IN ('accepted', 'confirmed')
+        AND assigned_course.semester = s.semester
+  ) < 3
 LIMIT 5
 """
 COURSE_SELECT = f"""
@@ -212,7 +228,7 @@ TRACKING_SELECT = """
 FACULTY_SCHEDULE_CONDUCTING_SELECT = """
     SELECT
         m.meeting_id,
-        m.meeting_date,
+        COALESCE(m.meeting_date, r.selected_date) AS meeting_date,
         c.department AS course_department,
         c.course_number,
         c.section_number,
@@ -228,9 +244,10 @@ FACULTY_SCHEDULE_CONDUCTING_SELECT = """
     LEFT JOIN evaluations e ON e.meeting_id = m.meeting_id
     WHERE m.observer_id = %s
       AND c.semester = %s
-      AND m.observer_id IS NOT NULL
-      AND m.meeting_date IS NOT NULL
-    ORDER BY m.meeting_date, m.meeting_id
+      AND r.status IN ('accepted', 'confirmed')
+      AND COALESCE(m.meeting_date, r.selected_date) IS NOT NULL
+      AND (m.observer_id IS NULL OR m.observer_id = r.observer_id)
+    ORDER BY meeting_date, m.meeting_id
 """
 FACULTY_SCHEDULE_OBSERVEE_SELECT = """
     SELECT
@@ -480,6 +497,20 @@ def get_observees():
     return jsonify(rows)
 
 
+def _deadline_payload(row):
+    signup = calendar_day(row["signup_deadline"])
+    observation = calendar_day(row["observation_deadline"])
+    feedback = calendar_day(row["feedback_deadline"])
+    days_remaining = (signup - date.today()).days
+    return {
+        "signup_deadline": signup.isoformat(),
+        "observation_deadline": None if observation is None else observation.isoformat(),
+        "feedback_deadline": None if feedback is None else feedback.isoformat(),
+        "days_remaining": days_remaining,
+        "is_past": days_remaining < 0,
+    }
+
+
 def _require_signup_semester():
     signup_semester = request.args.get("signup_semester", "").strip()
     if not signup_semester:
@@ -495,25 +526,25 @@ def get_cycle_deadline():
 
     rows = query(
         """
-        SELECT
-            signup_deadline,
-            observation_deadline,
-            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
-        FROM cycles
+        SELECT signup_deadline, observation_deadline, feedback_deadline
+        FROM evaluation_cycles
         WHERE semester = %s
         """,
         (signup_semester,),
     )
     if not rows:
+        rows = query(
+            """
+            SELECT signup_deadline, observation_deadline, NULL AS feedback_deadline
+            FROM cycles
+            WHERE semester = %s
+            """,
+            (signup_semester,),
+        )
+    if not rows:
         return jsonify(error="No deadline is stored for that semester"), 404
 
-    days_remaining = int(rows[0]["days_remaining"])
-    return jsonify(
-        signup_deadline=_iso_date(rows[0]["signup_deadline"]),
-        observation_deadline=_iso_date(rows[0]["observation_deadline"]),
-        days_remaining=days_remaining,
-        is_past=days_remaining < 0,
-    )
+    return jsonify(_deadline_payload(rows[0]))
 
 
 def _calendar_day(value):
@@ -550,22 +581,13 @@ def save_cycle_deadline():
     )
     rows = query(
         """
-        SELECT
-            signup_deadline,
-            observation_deadline,
-            DATEDIFF(signup_deadline, CURDATE()) AS days_remaining
+        SELECT signup_deadline, observation_deadline, NULL AS feedback_deadline
         FROM cycles
         WHERE semester = %s
         """,
         (semester,),
     )
-    days_remaining = int(rows[0]["days_remaining"])
-    return jsonify(
-        signup_deadline=_iso_date(rows[0]["signup_deadline"]),
-        observation_deadline=_iso_date(rows[0]["observation_deadline"]),
-        days_remaining=days_remaining,
-        is_past=days_remaining < 0,
-    )
+    return jsonify(_deadline_payload(rows[0]))
 
 
 @app.route("/api/observees/no-observers")
@@ -660,6 +682,17 @@ def get_observe_list():
             ob_r.status,
             ob_r.selected_date,
             (
+                SELECT COUNT(DISTINCT assigned.meeting_id)
+                FROM observation_requests assigned
+                JOIN meetings assigned_meeting
+                    ON assigned_meeting.meeting_id = assigned.meeting_id
+                JOIN courses assigned_course
+                    ON assigned_course.course_id = assigned_meeting.course_id
+                WHERE assigned.observer_id = ob_r.observer_id
+                  AND assigned.status IN ('accepted', 'confirmed')
+                  AND assigned_course.semester = target.semester
+            ) AS currentObservationCount,
+            (
                 SELECT CONCAT(taught.department, ' ', taught.course_number)
                 FROM courses taught
                 WHERE taught.prof_id = ob_r.observer_id
@@ -669,8 +702,7 @@ def get_observe_list():
                       = CONCAT(SUBSTRING(target.course_number, 1, 1), '000')
                 ORDER BY taught.course_number
                 LIMIT 1
-            ) AS teaches,
-            0 AS currentObservationCount
+            ) AS teaches
         FROM observation_requests ob_r
         JOIN professors p ON p.professor_id = ob_r.observer_id
         JOIN meetings meet ON meet.meeting_id = ob_r.meeting_id
@@ -707,6 +739,7 @@ def get_observe_list():
     for row in observers:
         if row["selected_date"] is not None:
             row["selected_date"] = row["selected_date"].isoformat()
+        row["currentObservationCount"] = int(row["currentObservationCount"] or 0)
 
     return jsonify(observers)
 
@@ -801,6 +834,24 @@ def send_observer_requests():
         for observer_id in observer_ids:
             cur.execute(
                 """
+                SELECT COUNT(DISTINCT assigned.meeting_id) AS observation_count
+                FROM observation_requests assigned
+                JOIN meetings assigned_meeting
+                    ON assigned_meeting.meeting_id = assigned.meeting_id
+                JOIN courses assigned_course
+                    ON assigned_course.course_id = assigned_meeting.course_id
+                WHERE assigned.observer_id = %s
+                  AND assigned.status IN ('accepted', 'confirmed')
+                  AND assigned_course.semester = %s
+                """,
+                (observer_id, signup_semester),
+            )
+            observation_count = cur.fetchone()["observation_count"]
+            if observation_count >= MAX_CONFIRMED_OBSERVATIONS:
+                skipped.append(observer_id)
+                continue
+            cur.execute(
+                """
                 UPDATE observation_requests
                 SET status = 'pending', sent_at = NOW()
                 WHERE meeting_id = %s
@@ -862,7 +913,11 @@ def send_observer_requests():
     sent_ids, skipped, recipients, message = transaction(mark_pending)
     if not sent_ids:
         return jsonify(
-            error="None of the selected observers can be requested",
+            error=(
+                "None of the selected observers can be requested. "
+                "A request can be sent only to an approved observer with fewer than "
+                "3 accepted or confirmed observations this semester."
+            ),
             skipped=skipped,
         ), 409
 
@@ -1157,11 +1212,12 @@ def accept_observer_request(meeting_id):
         # only this semester's observations count toward the cap of 3
         cur.execute(
             """
-            SELECT r.status
+            SELECT COUNT(DISTINCT r.meeting_id) AS observation_count
             FROM observation_requests r
             JOIN meetings m ON m.meeting_id = r.meeting_id
             JOIN courses c ON c.course_id = m.course_id
             WHERE r.observer_id = %s
+              AND r.status IN ('accepted', 'confirmed')
               AND c.semester = (
                   SELECT c2.semester
                   FROM meetings m2
@@ -1172,11 +1228,7 @@ def accept_observer_request(meeting_id):
             """,
             (g.user_id, meeting_id),
         )
-        confirmed = sum(
-            1
-            for row in cur.fetchall()
-            if row["status"] in ("accepted", "confirmed")
-        )
+        confirmed = cur.fetchone()["observation_count"]
         if confirmed >= MAX_CONFIRMED_OBSERVATIONS:
             raise ObservationRuleError(
                 "You already have 3 confirmed observations",

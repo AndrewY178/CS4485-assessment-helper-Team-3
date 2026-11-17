@@ -213,6 +213,7 @@ export type ObserveeStatus =
 export interface CycleDeadlineResponse {
   signup_deadline: string
   observation_deadline: string | null
+  feedback_deadline?: string | null
   days_remaining: number
   is_past: boolean
 }
