@@ -1,5 +1,11 @@
-import type { Stat } from '../data/mockData'
 import { AlertTriangleIcon } from './Icons'
+
+export interface Stat {
+  label: string
+  value: string
+  caption: string
+  warning?: boolean
+}
 
 export default function StatCard({ stat }: { stat: Stat }) {
   return (
