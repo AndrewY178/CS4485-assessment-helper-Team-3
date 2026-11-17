@@ -17,9 +17,22 @@ function localIso(day: Date): string {
   return `${day.getFullYear()}-${month}-${date}`
 }
 
-function upcomingDates(lastDay: string): string[] {
-  const start = new Date()
-  start.setHours(12, 0, 0, 0)
+function nextDay(iso: string): string {
+  const day = new Date(`${iso}T12:00:00`)
+  day.setDate(day.getDate() + 1)
+  return localIso(day)
+}
+
+// Observation dates must be after the sign-up deadline, and not in the past.
+function earliestOfferableDate(signupDeadline: string | undefined): string {
+  const today = localIso(new Date())
+  if (!signupDeadline) return today
+  const afterSignup = nextDay(signupDeadline.slice(0, 10))
+  return afterSignup > today ? afterSignup : today
+}
+
+function upcomingDates(firstDay: string, lastDay: string): string[] {
+  const start = new Date(`${firstDay}T12:00:00`)
   const dates: string[] = []
   for (let offset = 0; dates.length < 3 && offset < 40; offset += 1) {
     const day = new Date(start)
@@ -29,6 +42,23 @@ function upcomingDates(lastDay: string): string[] {
     dates.push(iso)
   }
   return dates
+}
+
+function todayIso() {
+  return new Date().toLocaleDateString('en-CA')
+}
+
+// What the status card says about the cycle: the sign-up deadline while it is open, otherwise that it
+// has passed plus the next upcoming deadline.
+function deadlineSummary(deadline: CycleDeadlineResponse | null) {
+  if (!deadline) return 'Sign-up deadline is not available.'
+  if (!deadline.is_past) return `Sign up by ${formatStoredDate(deadline.signup_deadline)}`
+  const observation = deadline.observation_deadline
+  if (!observation) return 'Sign-up deadline has passed.'
+  if (observation.slice(0, 10) >= todayIso()) {
+    return `Sign-up deadline has passed. Next deadline: observations due ${formatStoredDate(observation)}.`
+  }
+  return 'Sign-up and observation deadlines have passed.'
 }
 
 function formatStoredDate(value: string) {
@@ -88,6 +118,7 @@ export default function FacultyStatusPage() {
     retry: retrySemester,
   } = useCurrentSemester()
   const observationDeadline = deadline?.observation_deadline?.slice(0, 10) ?? ''
+  const earliestDate = earliestOfferableDate(deadline?.signup_deadline)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -134,7 +165,9 @@ export default function FacultyStatusPage() {
           const storedObservationDeadline = stored.observation_deadline?.slice(0, 10) ?? ''
           if (storedObservationDeadline) {
             setDates((current) => (
-              current.length > 0 ? current : upcomingDates(storedObservationDeadline)
+              current.length > 0
+                ? current
+                : upcomingDates(earliestOfferableDate(stored.signup_deadline), storedObservationDeadline)
             ))
           }
         }
@@ -231,7 +264,7 @@ export default function FacultyStatusPage() {
 
   function cancelSignUp() {
     setSelectedCourse(courses[0]?.course_id ?? null)
-    setDates(observationDeadline ? upcomingDates(observationDeadline) : [])
+    setDates(observationDeadline ? upcomingDates(earliestDate, observationDeadline) : [])
     setNewDate('')
     setSubmitted(false)
     setNotice('Your sign-up changes were canceled.')
@@ -265,9 +298,7 @@ export default function FacultyStatusPage() {
           <h1>Due this semester</h1>
           <p>{rankSummary}</p>
           <p className="evaluation-status-card__deadline">
-            {deadline
-              ? `Sign up by ${formatStoredDate(deadline.signup_deadline)}`
-              : 'Sign-up deadline is not available.'}
+            {deadlineSummary(deadline)}
           </p>
         </section>
 
@@ -340,7 +371,7 @@ export default function FacultyStatusPage() {
               <input
                 aria-label="Add an available observation date"
                 max={observationDeadline || undefined}
-                min={localIso(new Date())}
+                min={earliestDate}
                 onChange={(event) => setNewDate(event.target.value)}
                 type="date"
                 value={newDate}

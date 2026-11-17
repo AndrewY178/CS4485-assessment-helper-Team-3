@@ -13,6 +13,7 @@ from flask import Blueprint, g, jsonify, request
 
 from api_helpers import error, json_body, transaction
 from auth import ac_required
+from deadlines import deadline_block
 from notifications import insert_notifications, send_notification_email
 
 observer_approval_bp = Blueprint("observer_approval", __name__)
@@ -62,6 +63,9 @@ def approve_observers():
     if args is None:
         return error("observee_id and signup_semester are required", 400)
     observee_id, signup_semester = args
+    blocked = deadline_block("approve_observer_list", signup_semester)
+    if blocked:
+        return blocked
 
     observer_ids = _parse_observer_ids(json_body().get("observer_ids"))
     if observer_ids is None:
@@ -181,6 +185,9 @@ def reopen_observer_list():
     if args is None:
         return error("observee_id and signup_semester are required", 400)
     observee_id, signup_semester = args
+    blocked = deadline_block("approve_observer_list", signup_semester)
+    if blocked:
+        return blocked
 
     with transaction() as cur:
         cur.execute(

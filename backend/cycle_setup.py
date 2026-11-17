@@ -58,25 +58,6 @@ def calendar_day(value):
     return None
 
 
-def sync_cycles_table(semester, signup_deadline, observation_deadline):
-    """Keep the older cycles table aligned with the evaluation cycle dates."""
-    signup_day = calendar_day(signup_deadline)
-    observation_day = calendar_day(observation_deadline)
-    if signup_day is None or observation_day is None:
-        return
-    query(
-        """
-        INSERT INTO cycles (semester, signup_deadline, observation_deadline)
-        VALUES (%s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            signup_deadline = VALUES(signup_deadline),
-            observation_deadline = VALUES(observation_deadline)
-        """,
-        (semester, signup_day, observation_day),
-        fetch=False,
-    )
-
-
 def _utc_iso(value):
     if value is None:
         return ""
@@ -141,7 +122,6 @@ def save_schedule(semester):
         (semester, "draft", *deadlines),
         fetch=False,
     )
-    sync_cycles_table(semester, deadlines[0], deadlines[1])
     rows = query(CYCLE_BY_SEMESTER_SELECT, (semester,))
     if not rows:
         return jsonify(error="Saved cycle could not be retrieved"), 500
