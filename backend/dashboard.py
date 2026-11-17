@@ -3,6 +3,7 @@
 from flask import Blueprint, jsonify
 
 from auth import ac_required
+from cycle_setup import calendar_day
 from db import query
 from kpis import _cycle_key, _load, _signup_record
 
@@ -154,13 +155,40 @@ def get_dashboard():
             (cycle,),
         )
         survey_count = int(survey_rows[0]["total"] or 0)
+    steps = _steps(len(signups), len(unmatched_rows), missing_observations, survey_count)
+    _apply_cycle_dates(steps, cycle)
 
     return jsonify(
         cycle=cycle,
-        steps=_steps(len(signups), len(unmatched_rows), missing_observations, survey_count),
+        steps=steps,
         hireLevels=sorted(ranks.values(), key=lambda item: item["hireLevel"]),
         alerts=alerts,
     )
+
+
+def _apply_cycle_dates(steps, semester):
+    """Put this semester's evaluation-cycle deadlines on the timeline."""
+    if not semester:
+        return
+    rows = query(
+        """
+        SELECT signup_deadline, observation_deadline, feedback_deadline
+        FROM evaluation_cycles
+        WHERE semester = %s
+        """,
+        (semester,),
+    )
+    if not rows:
+        return
+    dates = {
+        "Sign-up": calendar_day(rows[0]["signup_deadline"]),
+        "Observation": calendar_day(rows[0]["observation_deadline"]),
+        "Survey": calendar_day(rows[0]["feedback_deadline"]),
+    }
+    for step in steps:
+        day = dates.get(step["title"])
+        if day is not None:
+            step["date"] = day.isoformat()
 
 
 def query_names():
