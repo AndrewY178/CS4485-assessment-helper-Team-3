@@ -10,14 +10,7 @@ professor_rank_bp = Blueprint("professor_rank", __name__)
 
 
 def _known_ranks():
-    rows = query(
-        """
-        SELECT DISTINCT professor_rank
-        FROM professors
-        WHERE professor_rank IS NOT NULL AND professor_rank <> ''
-        """
-    )
-    return {row["professor_rank"] for row in rows}
+    return {"Assistant", "Associate", "Full"}
 
 
 @professor_rank_bp.put("/api/users/<int:professor_id>/rank")
@@ -31,7 +24,7 @@ def update_professor_rank(professor_id):
     if len(rank) > 50:
         return error("prof_rank must be 50 characters or fewer", 400)
     if rank not in _known_ranks():
-        return error("prof_rank must be a rank already stored for a professor", 400)
+        return error("prof_rank must be Assistant, Associate, or Full", 400)
 
     professors = query(
         "SELECT professor_id FROM professors WHERE professor_id = %s",
