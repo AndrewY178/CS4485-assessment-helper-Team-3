@@ -1,4 +1,13 @@
+import QuestionInput from '../template/QuestionInput'
 import type { EvaluationQuestion, EvaluationValue } from '../../types/evaluation'
+
+const evaluationRatingOptions = [
+  ...QuestionInput.ratingScale.map((option) => ({
+    value: option.value,
+    label: `${option.value} — ${option.label}`,
+  })),
+  { value: 'N/A' as const, label: 'N/A' },
+]
 
 interface EvaluationQuestionsProps {
   questions: EvaluationQuestion[]
@@ -21,14 +30,7 @@ export default function EvaluationQuestions({ questions, answers, editable, onCh
               <fieldset className="evaluation-choice-group">
                 <legend className="visually-hidden">Rating for {question.name}</legend>
                 <div className="request-date-options">
-                  {[
-                    { value: 1, label: '1 — Poor' },
-                    { value: 2, label: '2 — Below Expectations' },
-                    { value: 3, label: '3 — Meets Expectations' },
-                    { value: 4, label: '4 — Exceeds Expectations' },
-                    { value: 5, label: '5 — Excellent' },
-                    { value: 'N/A', label: 'N/A' },
-                  ].map((option) => (
+                  {evaluationRatingOptions.map((option) => (
                     <label className={`date-option${value === option.value ? ' date-option--selected' : ''}`} key={option.value}>
                       <input
                         checked={value === option.value}

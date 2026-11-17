@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import CriteriaTable from '../../components/template/CriteriaTable'
 import type { CriterionInput } from '../../components/template/CriterionEditor'
 import ConfirmDialog from '../../components/template/ConfirmDialog'
+import QuestionInput from '../../components/template/QuestionInput'
 import TemplatePreview from '../../components/template/TemplatePreview'
-import { observationRatingScale } from '../../data/templateMockData'
 import { getTemplate, getTemplates, saveTemplate } from '../../api/templates'
 import { ApiError } from '../../api/auth'
 import { useAuth } from '../../context/AuthContext'
@@ -14,7 +14,6 @@ function copyTemplate(template: ObservationTemplate): ObservationTemplate {
   return {
     ...template,
     criteria: template.criteria.map((criterion) => ({ ...criterion })),
-    ratingScale: template.ratingScale.map((rating) => ({ ...rating })),
   }
 }
 
@@ -69,7 +68,7 @@ export default function TemplatePage() {
       return getTemplate(selectedSemester, token, controller.signal)
     })
       .then((response) => {
-        setTemplate({ ...response.template, ratingScale: observationRatingScale })
+        setTemplate(response.template)
         setWorkingCopy(null)
         setSemesters(response.semesters)
         setError('')
@@ -129,7 +128,7 @@ export default function TemplatePage() {
     setError('')
     try {
       const response = await saveTemplate(selectedSemester, workingCopy.criteria, token)
-      const saved = { ...response.template, ratingScale: observationRatingScale }
+      const saved = response.template
       setTemplate(saved)
       setSemesters((current) => current.map((item) => item.semester === selectedSemester
         ? { ...item, version: saved.version, status: saved.status === 'current' ? 'published' : 'draft' }
@@ -217,7 +216,7 @@ export default function TemplatePage() {
           <aside className="rating-scale" aria-labelledby="rating-scale-title">
             <h2 id="rating-scale-title">Rating scale:</h2>
             <ol>
-              {displayedTemplate.ratingScale.map((rating) => (
+              {QuestionInput.ratingScale.map((rating) => (
                 <li key={rating.value}><span>{rating.value}</span> {rating.label}</li>
               ))}
               <li><span>N/A</span> Not applicable</li>

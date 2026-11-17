@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/auth'
 import { getFeedback, saveFeedback } from '../../api/feedback'
 import { useAuth } from '../../context/AuthContext'
+import { useCurrentSemester } from '../../hooks/useCurrentSemester'
 import type {
   FeedbackProcessRating,
   FeedbackResponse,
@@ -300,13 +301,12 @@ function FeedbackSurveyForm({
 
 export default function FeedbackSurveyPage() {
   const { token, userId } = useAuth()
-
-  // TODO(API): Replace this temporary semester with the active Faculty feedback
-  // cycle returned by Flask. Keep the deadline empty until Flask supplies it.
-  const [surveyContext] = useState<FeedbackSurveyContext>({
-    semester: 'Fall 2026',
-    feedbackDeadline: null,
-  })
+  const {
+    semester,
+    isLoading: isSemesterLoading,
+    error: semesterError,
+    retry: retrySemester,
+  } = useCurrentSemester()
 
   if (!token || !userId) {
     return (
@@ -318,6 +318,40 @@ export default function FeedbackSurveyPage() {
         </section>
       </section>
     )
+  }
+
+  if (isSemesterLoading) {
+    return (
+      <section className="screen-page participant-page feedback-page">
+        <section aria-live="polite" className="feedback-state">
+          <span aria-hidden="true" className="feedback-loading-indicator" />
+          <div>
+            <h1>Loading feedback survey</h1>
+            <p>Retrieving the current semester.</p>
+          </div>
+        </section>
+      </section>
+    )
+  }
+
+  if (semesterError || !semester) {
+    return (
+      <section className="screen-page participant-page feedback-page">
+        <section className="feedback-state feedback-state--error" role="alert">
+          <p className="feedback-state__eyebrow">Survey unavailable</p>
+          <h1>We could not determine the current semester</h1>
+          <p>{semesterError ?? 'The current semester is unavailable.'}</p>
+          <button className="button button--outline" onClick={retrySemester} type="button">
+            Retry
+          </button>
+        </section>
+      </section>
+    )
+  }
+
+  const surveyContext: FeedbackSurveyContext = {
+    semester,
+    feedbackDeadline: null,
   }
 
   return (
