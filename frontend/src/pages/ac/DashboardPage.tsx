@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import AlertPanel from '../../components/AlertPanel'
 import HireLevelTable from '../../components/HireLevelTable'
 import { MailIcon } from '../../components/Icons'
-import StatCard from '../../components/StatCard'
+import StatCard, { type Stat } from '../../components/StatCard'
 import Stepper from '../../components/Stepper'
 import { ApiError } from '../../api/auth'
 import { getCycleDeadline } from '../../api/cycles'
@@ -12,7 +12,6 @@ import { getKpis } from '../../api/kpis'
 import { getNoObserverObservees, getObservees, getUncompletedObservees } from '../../api/observees'
 import { generateObserverLists } from '../../api/observers'
 import { sendSignUpReminders } from '../../api/reminders'
-import type { Stat } from '../../data/mockData'
 import type {
   CycleDeadlineResponse,
   CycleKpis,

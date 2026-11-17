@@ -1432,6 +1432,10 @@ tbody th {
   color: #bd5d13;
 }
 
+.observation-stage--canceled {
+  color: #8b3a3a;
+}
+
 .screen-eyebrow {
   margin: 0 0 8px;
   color: var(--green-700) !important;
@@ -1939,6 +1943,31 @@ tbody th {
   font-size: 11px;
 }
 
+.observers-page .confirmed-observer-banner {
+  border-color: #9bbfb0;
+  padding: 18px 20px;
+}
+
+.observers-page .confirmed-observer-banner strong {
+  font-size: 15px;
+}
+
+.observers-page .confirmed-observer-banner p {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.observers-page .inline-notice {
+  margin: 16px 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.observers-page .observer-list-scroll {
+  margin-top: 24px;
+}
+
 .confirmed-observer-banner .button {
   min-width: 132px;
   border-radius: 999px;
@@ -1973,6 +2002,12 @@ tbody th {
 .observer-list-table td:first-child {
   width: 38px;
   padding-left: 3px;
+}
+
+.observer-list-table--scheduled th:first-child,
+.observer-list-table--scheduled td:first-child {
+  width: auto;
+  padding-left: 10px;
 }
 
 .observer-list-table input[type='checkbox'] {

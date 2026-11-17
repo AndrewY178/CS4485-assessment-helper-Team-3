@@ -1,10 +1,6 @@
 import type { FacultyScheduleResponse } from '../types/schedule'
 import { get } from './client'
 
-// Used by schedule and observer-request screens until they receive an active
-// semester from their own API responses.
-export const TEMPORARY_SCHEDULE_SEMESTER = 'Fall 2026'
-
 export interface FacultyCourse {
   course_id: number
   department: string

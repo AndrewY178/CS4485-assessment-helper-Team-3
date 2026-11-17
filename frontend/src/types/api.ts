@@ -19,6 +19,7 @@ export interface LoginResponse {
   role: Role | null // first role the person holds (null if none), have frontend ignore this
   roles: Role[] // all roles the person holds 
   userId: string
+  name: string
 }
 
 // POST /api/auth/logout
@@ -481,38 +482,6 @@ export interface InvitationResponse {
 // PUT /api/obs/{id}/observers (teacher version)
 // Updates the observer for a teacher after the observer accepts.
 // Uses SetObserversRequest above.
-
-// PUT /api/feedback
-// GET /api/feedback?semester=&observee_id=
-// GET /api/feedback/breakdown?semester=
-export type FeedbackSemesterRole = 'observee' | 'observer' | 'both'
-export type FeedbackProcessRating = 'yes' | 'mostly' | 'no'
-
-export interface SaveFeedbackRequest {
-  semester: string
-  semester_role?: FeedbackSemesterRole
-  process_OK: FeedbackProcessRating
-  difficulties?: string | null
-  improvements?: string | null
-}
-
-export interface FeedbackResponse {
-  semester: string
-  observee_id: number
-  semester_role: FeedbackSemesterRole
-  process_OK: FeedbackProcessRating
-  difficulties: string | null
-  improvements: string | null
-}
-
-export interface FeedbackBreakdownResponse {
-  semester: string
-  counts: {
-    yes: number
-    mostly: number
-    no: number
-  }
-}
 
 // POST /api/obs/{id}/form
 // Observer: can edit the form and sign. Observee: can only sign.

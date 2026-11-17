@@ -40,7 +40,7 @@ export default function TemplatePreview({ template, label, onClose }: TemplatePr
             <li className="preview-criterion" key={criterion.id}>
               <h3>{criterion.name}</h3>
               <p>{criterion.description}</p>
-              <QuestionInput criterion={criterion} ratingScale={template.ratingScale} />
+              <QuestionInput criterion={criterion} />
             </li>
           ))}
         </ol>

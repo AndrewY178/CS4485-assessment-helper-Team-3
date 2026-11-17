@@ -3,21 +3,19 @@ import { Search } from 'lucide-react'
 import { ApiError } from '../../api/auth'
 import { getObservationTracking } from '../../api/tracking'
 import { useAuth } from '../../context/AuthContext'
+import { useCurrentSemester } from '../../hooks/useCurrentSemester'
 import type {
   TrackingObservation,
   TrackingResponse,
   TrackingStatus,
 } from '../../types/tracking'
 
-// TODO(API): Replace this with the active semester from Cycle Setup once that
-// endpoint is available. Tracking records themselves always come from Flask.
-const TRACKING_SEMESTER = 'Fall 2026'
-
 const statusLabels: Record<TrackingStatus, string> = {
   'observer-needed': 'Observer needed',
   scheduled: 'Scheduled',
   'report-pending': 'Report pending',
   completed: 'Completed',
+  canceled: 'Canceled',
   'needs-attention': 'Needs attention',
 }
 
@@ -26,11 +24,14 @@ const summaryStatuses: TrackingStatus[] = [
   'scheduled',
   'report-pending',
   'completed',
+  'canceled',
   'needs-attention',
 ]
 
 function stageClass(status: TrackingStatus) {
-  return status === 'needs-attention'
+  return status === 'canceled'
+    ? 'observation-stage observation-stage--canceled'
+    : status === 'needs-attention'
     ? 'observation-stage observation-stage--warning'
     : 'observation-stage'
 }
@@ -66,6 +67,12 @@ function matchesSearch(observation: TrackingObservation, search: string) {
 
 export default function TrackingPage() {
   const { token } = useAuth()
+  const {
+    semester,
+    isLoading: isSemesterLoading,
+    error: semesterError,
+    retry: retrySemester,
+  } = useCurrentSemester()
   const [tracking, setTracking] = useState<TrackingResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -82,12 +89,13 @@ export default function TrackingPage() {
         setIsLoading(false)
         return
       }
+      if (!semester) return
 
       try {
         setIsLoading(true)
         setError(null)
         const response = await getObservationTracking(
-          TRACKING_SEMESTER,
+          semester,
           token,
           controller.signal,
         )
@@ -111,7 +119,7 @@ export default function TrackingPage() {
 
     void loadTracking()
     return () => controller.abort()
-  }, [loadAttempt, token])
+  }, [loadAttempt, semester, token])
 
   const observations = useMemo(
     () => tracking?.observations ?? [],
@@ -132,17 +140,19 @@ export default function TrackingPage() {
     })),
     [observations],
   )
+  const pageError = semesterError ?? error
+  const pageLoading = isSemesterLoading || (!pageError && isLoading)
 
   return (
     <section className="screen-page tracking-page">
       <header className="screen-header tracking-header">
         <div>
           <h1>Observation tracking</h1>
-          <p>{TRACKING_SEMESTER} · Live observation status</p>
+          <p>{semester ? `${semester} · Live observation status` : 'Current semester unavailable'}</p>
         </div>
       </header>
 
-      {isLoading && (
+      {pageLoading && (
         <section aria-live="polite" className="tracking-state">
           <div aria-hidden="true" className="tracking-loading-indicator" />
           <div>
@@ -152,15 +162,18 @@ export default function TrackingPage() {
         </section>
       )}
 
-      {!isLoading && error && (
+      {!pageLoading && pageError && (
         <section className="tracking-state tracking-state--error" role="alert">
           <div>
             <strong>Observation tracking is unavailable</strong>
-            <p>{error}</p>
+            <p>{pageError}</p>
           </div>
           <button
             className="button button--outline"
-            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+            onClick={() => {
+              if (semesterError) retrySemester()
+              else setLoadAttempt((attempt) => attempt + 1)
+            }}
             type="button"
           >
             Retry
@@ -168,7 +181,7 @@ export default function TrackingPage() {
         </section>
       )}
 
-      {!isLoading && !error && tracking && (
+      {!pageLoading && !pageError && tracking && (
         <>
           <section aria-label="Observation status summary" className="tracking-summary">
             {summary.map(({ label, status, value }) => (

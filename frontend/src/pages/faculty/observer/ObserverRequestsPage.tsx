@@ -72,15 +72,13 @@ export default function ObserverRequestsPage() {
   const [requests, setRequests] = useState<ObserverRequestResponse[]>([])
   const [selectedDates, setSelectedDates] = useState<Record<number, string>>({})
   const [notice, setNotice] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(Boolean(token))
+  const [error, setError] = useState<string | null>(
+    token ? null : 'Your session is unavailable. Please sign in again.',
+  )
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false)
-      setError('Your session is unavailable. Please sign in again.')
-      return
-    }
+    if (!token) return
 
     const controller = new AbortController()
 
@@ -163,7 +161,7 @@ export default function ObserverRequestsPage() {
 
   const confirmedCount = requests.filter((request) => isAccepted(request.status)).length
   const atCapacity = confirmedCount >= 3
-  const visibleRequests = requests.filter((request) => request.status !== 'declined')
+  const visibleRequests = requests
 
   return (
     <section className="screen-page participant-page requests-page">

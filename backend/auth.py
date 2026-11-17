@@ -174,8 +174,10 @@ def login():
         return error("Email and password are required", 400)
 
     rows = query(
-        "SELECT id, password_hash, email_verified_at FROM users "
-        "WHERE email = %s AND is_active = TRUE",
+        "SELECT u.id, u.password_hash, u.email_verified_at, "
+        "p.professor_name FROM users AS u "
+        "JOIN professors AS p ON p.professor_id = u.id "
+        "WHERE u.email = %s AND u.is_active = TRUE",
         (email,),
     )
     user = rows[0] if rows else None
@@ -193,7 +195,13 @@ def login():
     )
     roles = _roles_for(user["id"])
     # "role" matches the draft API contract (single value); "roles" is the full list
-    return jsonify(token=token, role=roles[0] if roles else None, roles=roles, userId=str(user["id"]))
+    return jsonify(
+        token=token,
+        role=roles[0] if roles else None,
+        roles=roles,
+        userId=str(user["id"]),
+        name=user["professor_name"],
+    )
 
 
 @auth_bp.post("/api/auth/logout")

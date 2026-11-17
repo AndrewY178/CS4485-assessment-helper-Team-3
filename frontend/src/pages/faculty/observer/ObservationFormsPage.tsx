@@ -1,186 +1,158 @@
 import { useEffect, useState } from 'react'
-import { ApiError } from '../../../api/auth'
 import {
-  getFacultySchedule,
-  TEMPORARY_SCHEDULE_SEMESTER,
-} from '../../../api/schedule'
+  getEvaluation,
+  getObserverEvaluations,
+  saveObserverAnswers,
+  signAsObserver,
+  startEvaluation,
+} from '../../../api/evaluations'
+import EvaluationQuestions from '../../../components/evaluation/EvaluationQuestions'
 import { useAuth } from '../../../context/AuthContext'
-import type { FacultyScheduleObservation } from '../../../types/schedule'
+import type { EvaluationRecord, EvaluationValue, ObserverEvaluationItem } from '../../../types/evaluation'
 import '../../../styles/observation-forms.css'
-
-type ObservationFormsState =
-  | { status: 'loading' }
-  | { status: 'error'; message: string; accessDenied?: boolean }
-  | { status: 'ready'; observations: FacultyScheduleObservation[] }
-
-function formatDate(value: string) {
-  const parsed = Date.parse(`${value}T00:00:00Z`)
-  if (Number.isNaN(parsed)) return value
-
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(parsed)
-}
-
-function reportStatus(observation: FacultyScheduleObservation) {
-  return observation.status === 'Completed' ? 'Submitted' : 'Pending'
-}
+import '../../../styles/evaluation.css'
 
 export default function ObservationFormsPage() {
   const { token } = useAuth()
-  const [loadAttempt, setLoadAttempt] = useState(0)
-  const [viewState, setViewState] = useState<ObservationFormsState>(() => (
-    token
-      ? { status: 'loading' }
-      : {
-          status: 'error',
-          message: 'Your session is unavailable. Please sign in again.',
-        }
-  ))
+  const [observations, setObservations] = useState<ObserverEvaluationItem[]>([])
+  const [selected, setSelected] = useState<EvaluationRecord | null>(null)
+  const [answers, setAnswers] = useState<Record<string, EvaluationValue>>({})
+  const [typedName, setTypedName] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     if (!token) return
-
     const controller = new AbortController()
-    void getFacultySchedule(
-      TEMPORARY_SCHEDULE_SEMESTER,
-      token,
-      controller.signal,
-    )
-      .then((schedule) => {
-        if (!controller.signal.aborted) {
-          setViewState({ status: 'ready', observations: schedule.conducting })
-        }
+    getObserverEvaluations(token, controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) setObservations(result.observations)
       })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return
-        const accessDenied = error instanceof ApiError && error.status === 403
-        setViewState({
-          status: 'error',
-          accessDenied,
-          message: accessDenied
-            ? 'Observation Forms is available only to Faculty users.'
-            : error instanceof Error
-              ? error.message
-              : 'Observation forms could not be loaded.',
-        })
+      .catch((loadError: unknown) => {
+        if (!controller.signal.aborted) setError(loadError instanceof Error ? loadError.message : 'Could not load assigned observations.')
       })
-
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [loadAttempt, token])
+  }, [token])
+
+  async function refreshList() {
+    if (!token) return
+    const result = await getObserverEvaluations(token)
+    setObservations(result.observations)
+  }
+
+  async function openObservation(item: ObserverEvaluationItem) {
+    if (!token) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = item.evaluationId
+        ? await getEvaluation(item.evaluationId, token)
+        : await startEvaluation(item.meetingId, token)
+      setSelected(result.evaluation)
+      setAnswers(result.evaluation.answers)
+      setTypedName('')
+    } catch (openError) {
+      setError(openError instanceof Error ? openError.message : 'Could not open the evaluation.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveDraft() {
+    if (!token || !selected) return
+    setBusy(true)
+    setError('')
+    try {
+      const result = await saveObserverAnswers(selected.id, answers, token)
+      setSelected(result.evaluation)
+      setAnswers(result.evaluation.answers)
+      setNotice('Draft saved.')
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Could not save this draft.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function signEvaluation() {
+    if (!token || !selected) return
+    setBusy(true)
+    setError('')
+    try {
+      const result = await signAsObserver(selected.id, typedName, answers, token)
+      setSelected(result.evaluation)
+      await refreshList()
+      setNotice('Evaluation signed and sent to the observee for review.')
+    } catch (signError) {
+      setError(signError instanceof Error ? signError.message : 'Could not sign this evaluation.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <section className="screen-page participant-page observation-forms-page">
       <header className="participant-header">
         <div>
           <h1>Observation forms</h1>
-          <p>
-            Review reports for observations you are assigned to conduct.
-          </p>
+          <p>Complete and sign evaluations for your confirmed observations.</p>
         </div>
       </header>
-
-      {viewState.status === 'loading' && (
-        <section aria-live="polite" className="observation-forms-state">
-          <span aria-hidden="true" className="observation-forms-loading" />
-          <div>
-            <h2>Loading observation forms</h2>
-            <p>Retrieving your Observer assignments.</p>
-          </div>
-        </section>
+      {error && !selected && <p className="form-error" role="alert">{error}</p>}
+      {notice && <p className="signed-confirmation" role="status">{notice}</p>}
+      {loading ? <p role="status">Loading assigned observations…</p> : observations.length === 0 ? (
+        <p>No confirmed observations are assigned to you.</p>
+      ) : (
+        <div className="evaluation-assignment-list">
+          {observations.map((item) => (
+            <article className="evaluation-assignment" key={item.meetingId}>
+              <div>
+                <h2>{item.course.code} · {item.observeeName}</h2>
+                <p>{item.course.title} · {item.semester} · {item.meetingDate}</p>
+                <p>{item.status === 'complete' ? 'Fully signed' : item.status === 'awaiting_observee' ? 'Signed · waiting for observee' : item.status === 'draft' ? 'Draft in progress' : item.deadlinePassed ? 'Ready to start' : 'Available after signup closes'}</p>
+              </div>
+              <button className="button button--outline" disabled={busy || (!item.deadlinePassed && !item.evaluationId)} onClick={() => void openObservation(item)} type="button">
+                {item.evaluationId ? 'Open evaluation' : 'Start evaluation'}
+              </button>
+            </article>
+          ))}
+        </div>
       )}
 
-      {viewState.status === 'error' && (
-        <section className="observation-forms-state observation-forms-state--error" role="alert">
-          <span className="observation-forms-state__eyebrow">
-            {viewState.accessDenied ? 'Faculty access required' : 'Unable to load forms'}
-          </span>
-          <h2>
-            {viewState.accessDenied
-              ? 'You do not have access to Observation Forms'
-              : 'We couldn\'t retrieve your Observer assignments'}
-          </h2>
-          <p>{viewState.message}</p>
-          {!viewState.accessDenied && (
-            <button
-              className="button button--outline"
-              onClick={() => {
-                setViewState({ status: 'loading' })
-                setLoadAttempt((attempt) => attempt + 1)
-              }}
-              type="button"
-            >
-              Try again
-            </button>
-          )}
-        </section>
-      )}
-
-      {viewState.status === 'ready' && (
-        <section aria-labelledby="observation-forms-list-title">
-          <div className="observation-forms-heading">
-            <div>
-              <h2 id="observation-forms-list-title">Assigned observations</h2>
-              <p>{TEMPORARY_SCHEDULE_SEMESTER}</p>
-            </div>
-            <p className="observation-forms-note">
-              Form completion and viewing will be enabled when the report workflow is connected.
-            </p>
-          </div>
-
-          {viewState.observations.length === 0 ? (
-            <p className="observation-forms-empty">
-              No confirmed Observer assignments were found for this semester.
-            </p>
+      {selected && (
+        <section className="evaluation-workspace" aria-labelledby="evaluation-title">
+          <header>
+            <h2 id="evaluation-title">{selected.course.code} · {selected.observee.name}</h2>
+            <p>{selected.semester} · observed {selected.meetingDate}</p>
+            <button className="template-link-button" onClick={() => setSelected(null)} type="button">Close evaluation</button>
+          </header>
+          <EvaluationQuestions
+            answers={answers}
+            editable={!selected.observerSignature.signedAt}
+            onChange={(questionId, value) => setAnswers((current) => {
+              const next = { ...current }
+              if (value === '') delete next[questionId]
+              else next[questionId] = value
+              return next
+            })}
+            questions={selected.questions}
+          />
+          {selected.observerSignature.signedAt ? (
+            <p className="signed-confirmation">Signed by {selected.observerSignature.name} on {selected.observerSignature.signedAt}.</p>
           ) : (
-            <div className="screen-table-scroll observation-forms-table-scroll">
-              <table className="screen-table observation-forms-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Observee</th>
-                    <th scope="col">Course</th>
-                    <th scope="col">Observation date</th>
-                    <th scope="col">Report</th>
-                    <th scope="col">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {viewState.observations.map((observation) => {
-                    const status = reportStatus(observation)
-                    return (
-                      <tr key={observation.id}>
-                        <td>{observation.counterpartName}</td>
-                        <td>
-                          <strong>{observation.course.code}</strong>
-                          {observation.course.title && (
-                            <span>{observation.course.title}</span>
-                          )}
-                        </td>
-                        <td>{formatDate(observation.observationDate)}</td>
-                        <td>
-                          <span className={`observation-form-status observation-form-status--${status.toLowerCase()}`}>
-                            {status}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            className="observation-form-entry"
-                            disabled
-                            title="The observation report workflow is not connected yet."
-                            type="button"
-                          >
-                            {status === 'Submitted' ? 'View form' : 'Complete form'}
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <form className="sign-section" onSubmit={(event) => { event.preventDefault(); void signEvaluation() }}>
+              <label className="observation-field-label" htmlFor="observer-signature-name">Type your full name to sign</label>
+              <input id="observer-signature-name" onChange={(event) => setTypedName(event.target.value)} value={typedName} />
+              {error && <p className="form-error" role="alert">{error}</p>}
+              <div className="observee-signup-actions">
+                <button className="button button--outline" disabled={busy} onClick={() => void saveDraft()} type="button">{busy ? 'Saving…' : 'Save draft'}</button>
+                <button className="button button--primary signature-submit" disabled={busy} type="submit">Sign and send to observee</button>
+              </div>
+            </form>
           )}
         </section>
       )}
