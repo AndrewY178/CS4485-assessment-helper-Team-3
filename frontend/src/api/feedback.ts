@@ -1,6 +1,7 @@
 import type {
   FeedbackBreakdownResponse,
   FeedbackResponse,
+  FeedbackStatusResponse,
   SaveFeedbackRequest,
 } from '../types/feedback'
 import { get, put } from './client'
@@ -10,6 +11,19 @@ export function saveFeedback(
   token: string,
 ) {
   return put<FeedbackResponse>('/api/feedback', { body, token })
+}
+
+export function getFeedbackStatus(
+  semester: string,
+  token: string,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({ semester })
+
+  return get<FeedbackStatusResponse>(
+    `/api/feedback/status?${params.toString()}`,
+    { signal, token },
+  )
 }
 
 export function getFeedback(

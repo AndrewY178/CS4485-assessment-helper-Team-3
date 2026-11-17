@@ -40,8 +40,8 @@ RULES = {
     # saving and signing the observation form. Tied to the feedback deadline for now; if the team
     # wants this to end with the observation deadline instead, change it here.
     "complete_evaluation": [("feedback_deadline", "before")],
-    # the process feedback survey
-    "submit_feedback": [("feedback_deadline", "before")],
+    # the process feedback survey is open after the observation deadline and until the feedback deadline
+    "submit_feedback": [("observation_deadline", "after"), ("feedback_deadline", "before")],
 }
 
 # Accounts that skip every deadline, so the dev account can test the whole flow at any time.
@@ -136,11 +136,29 @@ def check_deadline(action, semester, now=None):
     return None
 
 
-def deadline_block(action, semester):
-    """Return a (response, 403) to send back if the action is outside its window, else None."""
+def deadline_problem(action, semester):
+    """The rule the current user's action breaks (a dict from check_deadline), or None if it is allowed.
+
+    Bypassed accounts are always allowed. Use this to show a screen as read-only; use deadline_block
+    to reject a request.
+    """
     if _is_bypassed(getattr(g, "user_id", None)):
         return None
-    problem = check_deadline(action, semester)
+    return check_deadline(action, semester)
+
+
+def cycle_deadline_times(semester):
+    """The semester's deadlines as UTC ISO timestamps (None for each one that is not set)."""
+    cycle = _cycle(semester) or {}
+    return {
+        column: (cycle[column].isoformat() + "Z") if cycle.get(column) else None
+        for column in DEADLINE_LABELS
+    }
+
+
+def deadline_block(action, semester):
+    """Return a (response, 403) to send back if the action is outside its window, else None."""
+    problem = deadline_problem(action, semester)
     if problem is None:
         return None
     return (

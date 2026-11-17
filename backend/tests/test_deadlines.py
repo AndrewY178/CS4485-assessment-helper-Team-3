@@ -100,6 +100,26 @@ class DeadlineBlockTests(unittest.TestCase):
         self.assertIsNotNone(self.block_as("dev_user", {"DEADLINE_BYPASS_USERNAMES": ""}))
         self.assertIsNotNone(self.block_as("dev_user", {"DEADLINE_BYPASS_USERNAMES": "someone_else"}))
 
+    def test_deadline_problem_reports_without_a_response_and_respects_the_bypass(self):
+        with self.app.test_request_context(), patch.dict(os.environ, {}):
+            g.user_id = 7
+            with patch.object(deadlines, "query", return_value=[{"username": "prof_01"}]):
+                self.assertEqual(deadlines.deadline_problem("test_action", "Fall 2026")["deadline"], "signup_deadline")
+            with patch.object(deadlines, "query", return_value=[{"username": "dev_user"}]):
+                self.assertIsNone(deadlines.deadline_problem("test_action", "Fall 2026"))
+
+    def test_cycle_deadline_times_are_utc_iso_strings(self):
+        times = deadlines.cycle_deadline_times("Fall 2026")
+        self.assertEqual(times["feedback_deadline"], "2026-12-20T23:59:00Z")
+        self.assertEqual(times["signup_deadline"], "2026-09-15T23:59:00Z")
+
+    def test_cycle_deadline_times_for_an_unknown_semester_are_all_none(self):
+        with patch.object(deadlines, "_cycle", return_value=None):
+            self.assertEqual(
+                deadlines.cycle_deadline_times("Nope"),
+                {"signup_deadline": None, "observation_deadline": None, "feedback_deadline": None},
+            )
+
     def test_allowed_action_returns_none(self):
         with patch.object(deadlines, "_utcnow", return_value=BEFORE_SIGNUP):
             self.assertIsNone(self.block_as("prof_01"))

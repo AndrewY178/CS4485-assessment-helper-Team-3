@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/auth'
-import { getFeedback, saveFeedback } from '../../api/feedback'
+import { getFeedback, getFeedbackStatus, saveFeedback } from '../../api/feedback'
 import { useAuth } from '../../context/AuthContext'
 import type {
   FeedbackProcessRating,
   FeedbackResponse,
   FeedbackSemesterRole,
+  FeedbackStatusResponse,
   FeedbackSurveyContext,
   SaveFeedbackRequest,
 } from '../../types/feedback'
@@ -21,6 +22,8 @@ interface SurveyFormValues {
 interface FeedbackSurveyFormProps {
   context: FeedbackSurveyContext
   professorId: string
+  readOnly: boolean
+  readOnlyMessage: string
   token: string
 }
 
@@ -84,6 +87,7 @@ function ChoiceGroup<T extends string>({
   value,
   onChange,
   error,
+  disabled,
 }: {
   legend: string
   name: string
@@ -91,6 +95,7 @@ function ChoiceGroup<T extends string>({
   value: T | ''
   onChange: (value: T) => void
   error?: string
+  disabled?: boolean
 }) {
   const errorId = `${name}-error`
 
@@ -106,6 +111,7 @@ function ChoiceGroup<T extends string>({
           <label className="feedback-choice" key={option.value}>
             <input
               checked={value === option.value}
+              disabled={disabled}
               name={name}
               onChange={() => onChange(option.value)}
               type="radio"
@@ -127,6 +133,8 @@ function ChoiceGroup<T extends string>({
 function FeedbackSurveyForm({
   context,
   professorId,
+  readOnly,
+  readOnlyMessage,
   token,
 }: FeedbackSurveyFormProps) {
   const [form, setForm] = useState<SurveyFormValues>(emptyForm)
@@ -178,6 +186,7 @@ function FeedbackSurveyForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (readOnly) return
 
     const nextErrors: Partial<Record<keyof SurveyFormValues, string>> = {}
     if (!form.semesterRole) {
@@ -240,6 +249,11 @@ function FeedbackSurveyForm({
 
   return (
     <form className="feedback-card" onSubmit={handleSubmit}>
+      {readOnly && (
+        <div className="feedback-saved-note" role="status">
+          {readOnlyMessage}
+        </div>
+      )}
       {loadState.previouslySubmitted && (
         <div className="feedback-saved-note">
           You previously submitted this survey. Changes will replace your saved response.
@@ -247,6 +261,7 @@ function FeedbackSurveyForm({
       )}
 
       <ChoiceGroup
+        disabled={readOnly}
         error={errors.semesterRole}
         legend="This cycle I was"
         name="semester-role"
@@ -256,6 +271,7 @@ function FeedbackSurveyForm({
       />
 
       <ChoiceGroup
+        disabled={readOnly}
         error={errors.processOk}
         legend="Was the process OK?"
         name="process-ok"
@@ -267,6 +283,7 @@ function FeedbackSurveyForm({
       <label className="feedback-text-field">
         <span>What difficulties did you run into?</span>
         <textarea
+          disabled={readOnly}
           onChange={(event) => updateField('difficulties', event.target.value)}
           rows={5}
           value={form.difficulties}
@@ -276,6 +293,7 @@ function FeedbackSurveyForm({
       <label className="feedback-text-field">
         <span>How could we improve the process?</span>
         <textarea
+          disabled={readOnly}
           onChange={(event) => updateField('improvements', event.target.value)}
           rows={5}
           value={form.improvements}
@@ -286,7 +304,7 @@ function FeedbackSurveyForm({
         <div aria-live="polite" className="feedback-notice">
           {notice}
         </div>
-        <button className="button button--primary" disabled={saving} type="submit">
+        <button className="button button--primary" disabled={saving || readOnly} type="submit">
           {saving
             ? 'Saving…'
             : loadState.previouslySubmitted
@@ -303,10 +321,28 @@ export default function FeedbackSurveyPage() {
 
   // TODO(API): Replace this temporary semester with the active Faculty feedback
   // cycle returned by Flask. Keep the deadline empty until Flask supplies it.
-  const [surveyContext] = useState<FeedbackSurveyContext>({
-    semester: 'Fall 2026',
-    feedbackDeadline: null,
-  })
+  const semester = 'Fall 2026'
+  // Whether the survey can be edited now: it is read-only until the observation deadline passes and
+  // after the feedback deadline.
+  const [surveyStatus, setSurveyStatus] = useState<FeedbackStatusResponse | null>(null)
+
+  useEffect(() => {
+    if (!token) return
+    const controller = new AbortController()
+    getFeedbackStatus(semester, token, controller.signal)
+      .then((status) => {
+        if (!controller.signal.aborted) setSurveyStatus(status)
+      })
+      .catch(() => {
+        // If the status can't be loaded the form stays editable; the server still enforces the window.
+      })
+    return () => controller.abort()
+  }, [token])
+
+  const surveyContext: FeedbackSurveyContext = {
+    semester,
+    feedbackDeadline: surveyStatus?.feedbackDeadline ?? null,
+  }
 
   if (!token || !userId) {
     return (
@@ -335,6 +371,8 @@ export default function FeedbackSurveyPage() {
       <FeedbackSurveyForm
         context={surveyContext}
         professorId={userId}
+        readOnly={surveyStatus !== null && !surveyStatus.open}
+        readOnlyMessage={surveyStatus?.message ?? ''}
         token={token}
       />
     </section>

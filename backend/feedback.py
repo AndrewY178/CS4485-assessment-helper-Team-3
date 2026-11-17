@@ -5,7 +5,7 @@ from flask import Blueprint, g, jsonify, request
 from api_helpers import error, json_body
 from auth import _roles_for, ac_required, faculty_required, login_required
 from db import query
-from deadlines import deadline_block
+from deadlines import cycle_deadline_times, deadline_block, deadline_problem
 
 feedback_bp = Blueprint("feedback", __name__)
 
@@ -70,6 +70,24 @@ def save_feedback():
         process_OK=process_ok,
         difficulties=difficulties,
         improvements=improvements,
+    )
+
+
+@feedback_bp.get("/api/feedback/status")
+@faculty_required
+def get_feedback_status():
+    """Whether the survey can be edited right now, so the screen can be read-only outside the window."""
+    semester = request.args.get("semester", "").strip()
+    if not semester:
+        return error("semester is required", 400)
+    problem = deadline_problem("submit_feedback", semester)
+    times = cycle_deadline_times(semester)
+    return jsonify(
+        semester=semester,
+        open=problem is None,
+        message=problem["message"] if problem else None,
+        observationDeadline=times["observation_deadline"],
+        feedbackDeadline=times["feedback_deadline"],
     )
 
 
