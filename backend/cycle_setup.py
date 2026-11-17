@@ -1,6 +1,7 @@
 """Assessment-cycle setup endpoints."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify, request
 
@@ -39,6 +40,22 @@ CYCLE_UPSERT = """
         observation_deadline = VALUES(observation_deadline),
         feedback_deadline = VALUES(feedback_deadline)
 """
+
+
+CHICAGO = ZoneInfo("America/Chicago")
+
+
+def calendar_day(value):
+    """Calendar date in the cycle timezone. Stored datetimes are UTC."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(CHICAGO).date()
+    if isinstance(value, date):
+        return value
+    return None
 
 
 def _utc_iso(value):
