@@ -247,6 +247,9 @@ export default function MyObserversPage() {
     if (observer.status === 'expired') return 'Expired'
     if (observer.status === 'confirmed') return `Confirmed ${formatSelectedDate(observer.selected_date)}`
     if (observer.status === 'not_selected') return 'Not selected'
+    if ((observer.currentObservationCount ?? 0) >= 3) return 'Already observing 3 classes'
+    if (observer.status === 'approved') return 'Ready to request'
+    if (observer.status === 'generated') return 'Waiting for committee approval'
     return '—'
   }
 
@@ -321,6 +324,8 @@ export default function MyObserversPage() {
               {observers.map((observer) => {
                 const observerId = String(observer.observer_id)
                 const name = observer.professor_name ?? '—'
+                const atCapacity = (observer.currentObservationCount ?? 0) >= 3
+                const canRequest = observer.status === 'approved' && !atCapacity && !isScheduled
                 const canAccept = observer.status === 'accepted' && !isScheduled
 
                 return (
@@ -329,7 +334,7 @@ export default function MyObserversPage() {
                       <input
                         aria-label={`Select ${name}`}
                         checked={selected.includes(observerId)}
-                        disabled={isScheduled}
+                        disabled={!canRequest}
                         onChange={() => toggleObserver(observerId)}
                         type="checkbox"
                       />

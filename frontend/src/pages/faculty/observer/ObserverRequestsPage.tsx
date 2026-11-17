@@ -6,6 +6,7 @@ import {
   getObserverRequests,
 } from '../../../api/observers'
 import { useAuth } from '../../../context/AuthContext'
+import { AppLink } from '../../../context/NavigationContext'
 import type { ObserverRequestResponse } from '../../../types/api'
 
 function formatTime(time: string | null): string {
@@ -244,7 +245,7 @@ export default function ObserverRequestsPage() {
                       <h2>{name} - {course}</h2>
                       <p>You confirmed {formatDate(request.selected_date)}</p>
                     </div>
-                    <a className="text-link" href="/my-schedule">View in my schedule</a>
+                    <AppLink className="text-link" to="/my-schedule">View in my schedule</AppLink>
                   </div>
                 )}
               </article>

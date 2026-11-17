@@ -44,6 +44,9 @@ function withDeadlines(steps: DashboardStep[], deadline: CycleDeadlineResponse |
     if (step.title === 'Observation' && deadline.observation_deadline) {
       return { ...step, date: deadlineLabel(deadline.observation_deadline) }
     }
+    if (step.title === 'Survey' && deadline.feedback_deadline) {
+      return { ...step, date: deadlineLabel(deadline.feedback_deadline) }
+    }
     return step
   })
 }

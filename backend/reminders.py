@@ -3,7 +3,7 @@
 import os
 import time
 
-from flask import Blueprint, g, jsonify
+from flask import Blueprint, current_app, g, jsonify
 
 from api_helpers import error
 from auth import ac_required
@@ -180,6 +180,7 @@ def send_reminders():
                 g.user_id,
             )
         email_failures = 0
+        last_email_error = ""
         for index, candidate in enumerate(candidates):
             if index:
                 time.sleep(EMAILJS_RATE_LIMIT_SECONDS)
@@ -193,8 +194,10 @@ def send_reminders():
                     template_id=template_id,
                 )
                 sent_count += 1
-            except EmailServiceError:
+            except EmailServiceError as exc:
                 email_failures += 1
+                last_email_error = str(exc)
+                current_app.logger.warning("Reminder email was not sent: %s", exc)
 
         if email_failures:
             return (
@@ -202,7 +205,7 @@ def send_reminders():
                     error=(
                         f"Created {notification_count} in-app notifications; "
                         f"{sent_count} of {len(candidates)} email reminders "
-                        "were sent. Check EmailJS configuration and logs."
+                        f"were sent. {last_email_error}"
                     ),
                     sentCount=sent_count,
                     recipientCount=len(candidates),
