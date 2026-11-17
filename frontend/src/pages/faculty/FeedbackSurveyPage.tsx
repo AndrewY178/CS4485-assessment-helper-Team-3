@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/auth'
 import { getFeedback, getFeedbackStatus, saveFeedback } from '../../api/feedback'
 import { useAuth } from '../../context/AuthContext'
+import { useCurrentSemester } from '../../hooks/useCurrentSemester'
 import type {
   FeedbackProcessRating,
   FeedbackResponse,
@@ -318,16 +319,19 @@ function FeedbackSurveyForm({
 
 export default function FeedbackSurveyPage() {
   const { token, userId } = useAuth()
+  const {
+    semester,
+    isLoading: isSemesterLoading,
+    error: semesterError,
+    retry: retrySemester,
+  } = useCurrentSemester()
 
-  // TODO(API): Replace this temporary semester with the active Faculty feedback
-  // cycle returned by Flask. Keep the deadline empty until Flask supplies it.
-  const semester = 'Fall 2026'
   // Whether the survey can be edited now: it is read-only until the observation deadline passes and
   // after the feedback deadline.
   const [surveyStatus, setSurveyStatus] = useState<FeedbackStatusResponse | null>(null)
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !semester) return
     const controller = new AbortController()
     getFeedbackStatus(semester, token, controller.signal)
       .then((status) => {
@@ -337,12 +341,7 @@ export default function FeedbackSurveyPage() {
         // If the status can't be loaded the form stays editable; the server still enforces the window.
       })
     return () => controller.abort()
-  }, [token])
-
-  const surveyContext: FeedbackSurveyContext = {
-    semester,
-    feedbackDeadline: surveyStatus?.feedbackDeadline ?? null,
-  }
+  }, [semester, token])
 
   if (!token || !userId) {
     return (
@@ -354,6 +353,40 @@ export default function FeedbackSurveyPage() {
         </section>
       </section>
     )
+  }
+
+  if (isSemesterLoading) {
+    return (
+      <section className="screen-page participant-page feedback-page">
+        <section aria-live="polite" className="feedback-state">
+          <span aria-hidden="true" className="feedback-loading-indicator" />
+          <div>
+            <h1>Loading feedback survey</h1>
+            <p>Retrieving the current semester.</p>
+          </div>
+        </section>
+      </section>
+    )
+  }
+
+  if (semesterError || !semester) {
+    return (
+      <section className="screen-page participant-page feedback-page">
+        <section className="feedback-state feedback-state--error" role="alert">
+          <p className="feedback-state__eyebrow">Survey unavailable</p>
+          <h1>We could not determine the current semester</h1>
+          <p>{semesterError ?? 'The current semester is unavailable.'}</p>
+          <button className="button button--outline" onClick={retrySemester} type="button">
+            Retry
+          </button>
+        </section>
+      </section>
+    )
+  }
+
+  const surveyContext: FeedbackSurveyContext = {
+    semester,
+    feedbackDeadline: surveyStatus?.feedbackDeadline ?? null,
   }
 
   return (

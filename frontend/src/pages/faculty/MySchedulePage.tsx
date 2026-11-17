@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/auth'
-import {
-  getFacultySchedule,
-  TEMPORARY_SCHEDULE_SEMESTER,
-} from '../../api/schedule'
+import { getFacultySchedule } from '../../api/schedule'
 import { useAuth } from '../../context/AuthContext'
+import { useCurrentSemester } from '../../hooks/useCurrentSemester'
 import type {
   FacultyScheduleObservation,
   FacultyScheduleResponse,
@@ -160,6 +158,12 @@ function ScheduleSection({
 
 export default function MySchedulePage() {
   const { token } = useAuth()
+  const {
+    semester,
+    isLoading: isSemesterLoading,
+    error: semesterError,
+    retry: retrySemester,
+  } = useCurrentSemester()
   const [viewState, setViewState] = useState<ScheduleViewState>(() => (
     token
       ? { status: 'loading' }
@@ -171,11 +175,11 @@ export default function MySchedulePage() {
   const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !semester) return
 
     const controller = new AbortController()
     void getFacultySchedule(
-      TEMPORARY_SCHEDULE_SEMESTER,
+      semester,
       token,
       controller.signal,
     )
@@ -198,7 +202,16 @@ export default function MySchedulePage() {
       })
 
     return () => controller.abort()
-  }, [loadAttempt, token])
+  }, [loadAttempt, semester, token])
+
+  const displayedState: ScheduleViewState = isSemesterLoading
+    ? { status: 'loading' }
+    : semesterError || !semester
+      ? {
+          status: 'error',
+          message: semesterError ?? 'The current semester is unavailable.',
+        }
+      : viewState
 
   return (
     <section className="screen-page participant-page my-schedule-page">
@@ -212,7 +225,7 @@ export default function MySchedulePage() {
         </div>
       </header>
 
-      {viewState.status === 'loading' && (
+      {displayedState.status === 'loading' && (
         <section aria-live="polite" className="schedule-state schedule-state--loading">
           <span className="schedule-loading-indicator" aria-hidden="true" />
           <div>
@@ -222,23 +235,26 @@ export default function MySchedulePage() {
         </section>
       )}
 
-      {viewState.status === 'error' && (
+      {displayedState.status === 'error' && (
         <section className="schedule-state schedule-state--error" role="alert">
           <span className="schedule-state__eyebrow">
-            {viewState.accessDenied ? 'Faculty access required' : 'Unable to load schedule'}
+            {displayedState.accessDenied ? 'Faculty access required' : 'Unable to load schedule'}
           </span>
           <h2>
-            {viewState.accessDenied
+            {displayedState.accessDenied
               ? 'You do not have access to My Schedule'
               : 'We couldn\'t retrieve your observations'}
           </h2>
-          <p>{viewState.message}</p>
-          {!viewState.accessDenied && (
+          <p>{displayedState.message}</p>
+          {!displayedState.accessDenied && (
             <button
               className="button button--outline"
               onClick={() => {
-                setViewState({ status: 'loading' })
-                setLoadAttempt((attempt) => attempt + 1)
+                if (semesterError || !semester) retrySemester()
+                else {
+                  setViewState({ status: 'loading' })
+                  setLoadAttempt((attempt) => attempt + 1)
+                }
               }}
               type="button"
             >
@@ -248,18 +264,18 @@ export default function MySchedulePage() {
         </section>
       )}
 
-      {viewState.status === 'ready' && (
+      {displayedState.status === 'ready' && (
         <div className="schedule-sections">
           <ScheduleSection
             counterpartLabel="Observee"
             description="Observation assignments where you are serving as the Observer."
-            observations={viewState.schedule.conducting}
+            observations={displayedState.schedule.conducting}
             title="Observations I’m Conducting"
           />
           <ScheduleSection
             counterpartLabel="Observer"
             description="Observation appointments where you are the Observee."
-            observations={viewState.schedule.scheduledForMe}
+            observations={displayedState.schedule.scheduledForMe}
             title="My Scheduled Observations"
           />
         </div>

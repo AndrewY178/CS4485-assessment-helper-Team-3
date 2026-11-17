@@ -1,11 +1,18 @@
-import type { RatingOption, TemplateCriterion } from '../../types/template'
+import type { TemplateCriterion } from '../../types/template'
+
+const observationRatingScale = [
+  { value: 1, label: 'Poor' },
+  { value: 2, label: 'Below Expectations' },
+  { value: 3, label: 'Meets Expectations' },
+  { value: 4, label: 'Exceeds Expectations' },
+  { value: 5, label: 'Excellent' },
+] as const
 
 interface QuestionInputProps {
   criterion: TemplateCriterion
-  ratingScale: RatingOption[]
 }
 
-export default function QuestionInput({ criterion, ratingScale }: QuestionInputProps) {
+export default function QuestionInput({ criterion }: QuestionInputProps) {
   const fieldName = `preview-${criterion.id}`
   const requirement = criterion.required ? 'required' : 'optional'
 
@@ -28,7 +35,7 @@ export default function QuestionInput({ criterion, ratingScale }: QuestionInputP
   }
 
   const options = criterion.type === 'Rating 1–5'
-    ? ratingScale.map((option) => ({ key: String(option.value), label: `${option.value} — ${option.label}` }))
+    ? observationRatingScale.map((option) => ({ key: String(option.value), label: `${option.value} — ${option.label}` }))
     : [
         { key: 'yes', label: 'Yes' },
         { key: 'no', label: 'No' },
@@ -55,3 +62,4 @@ export default function QuestionInput({ criterion, ratingScale }: QuestionInputP
   )
 }
 
+QuestionInput.ratingScale = observationRatingScale

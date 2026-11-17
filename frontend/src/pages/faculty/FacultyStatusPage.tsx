@@ -4,11 +4,11 @@ import { getFacultyCourses } from '../../api/courses'
 import { getCycleDeadline } from '../../api/cycles'
 import { getFacultyStatus, type FacultyStatusResponse } from '../../api/facultyStatus'
 import { getPastObservations } from '../../api/pastObservations'
-import { TEMPORARY_SCHEDULE_SEMESTER } from '../../api/schedule'
 import { getSignupDates, saveSignupDates } from '../../api/signupDates'
 import { getUsers } from '../../api/users'
 import { useAuth } from '../../context/AuthContext'
 import { AppLink } from '../../context/NavigationContext'
+import { useCurrentSemester } from '../../hooks/useCurrentSemester'
 import type { CycleDeadlineResponse, FacultyCourse, PastObservation } from '../../types/api'
 
 function localIso(day: Date): string {
@@ -111,6 +111,12 @@ export default function FacultyStatusPage() {
   const [deadline, setDeadline] = useState<CycleDeadlineResponse | null>(null)
   const [pastObservations, setPastObservations] = useState<PastObservation[]>([])
   const { token, userId } = useAuth()
+  const {
+    semester,
+    isLoading: isSemesterLoading,
+    error: semesterError,
+    retry: retrySemester,
+  } = useCurrentSemester()
   const observationDeadline = deadline?.observation_deadline?.slice(0, 10) ?? ''
   const earliestDate = earliestOfferableDate(deadline?.signup_deadline)
 
@@ -140,9 +146,9 @@ export default function FacultyStatusPage() {
   }, [userId])
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !semester) return
     const controller = new AbortController()
-    getFacultyCourses(TEMPORARY_SCHEDULE_SEMESTER, token, controller.signal)
+    getFacultyCourses(semester, token, controller.signal)
       .then((rows) => {
         if (controller.signal.aborted) return
         setCourses(rows)
@@ -152,7 +158,7 @@ export default function FacultyStatusPage() {
         if (controller.signal.aborted) return
         setNotice(error instanceof Error ? error.message : 'Your courses could not be loaded.')
       })
-    getCycleDeadline(TEMPORARY_SCHEDULE_SEMESTER, controller.signal)
+    getCycleDeadline(semester, controller.signal)
       .then((stored) => {
         if (!controller.signal.aborted) {
           setDeadline(stored)
@@ -179,7 +185,7 @@ export default function FacultyStatusPage() {
         if (!controller.signal.aborted) setPastObservations([])
       })
     return () => controller.abort()
-  }, [token])
+  }, [semester, token])
 
   // show the dates this person already saved, if any
   useEffect(() => {
@@ -264,6 +270,26 @@ export default function FacultyStatusPage() {
     setNotice('Your sign-up changes were canceled.')
   }
 
+  if (isSemesterLoading) {
+    return (
+      <section aria-live="polite" className="screen-page participant-page">
+        <p>Loading the current semester…</p>
+      </section>
+    )
+  }
+
+  if (semesterError || !semester) {
+    return (
+      <section className="screen-page participant-page" role="alert">
+        <h1>Faculty status unavailable</h1>
+        <p>{semesterError ?? 'The current semester is unavailable.'}</p>
+        <button className="button button--outline" onClick={retrySemester} type="button">
+          Retry
+        </button>
+      </section>
+    )
+  }
+
   return (
     <section className="observee-status-page">
       <div className="observee-status-sidebar">
@@ -297,7 +323,7 @@ export default function FacultyStatusPage() {
         </header>
 
         <fieldset className="course-picker">
-          <legend>Your {TEMPORARY_SCHEDULE_SEMESTER} courses</legend>
+          <legend>Your {semester} courses</legend>
           <div className="course-options">
             {courses.length === 0 && <p>No courses are stored for you this semester.</p>}
             {courses.map((course) => (

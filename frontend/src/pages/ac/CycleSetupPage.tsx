@@ -3,11 +3,11 @@ import CycleTimelinePreview from '../../components/cycle/CycleTimelinePreview'
 import DeadlineField from '../../components/cycle/DeadlineField'
 import { ApiError } from '../../api/auth'
 import {
-  getCurrentSemester,
   getEvaluationCycles,
   saveEvaluationCycle,
 } from '../../api/cycleSetup'
 import { useAuth } from '../../context/AuthContext'
+import { useCurrentSemester } from '../../hooks/useCurrentSemester'
 import type {
   EvaluationCycleResponse,
   SaveEvaluationCycleRequest,
@@ -59,6 +59,13 @@ function validateDeadlines(values: SaveEvaluationCycleRequest) {
 
 export default function CycleSetupPage() {
   const { roles, token } = useAuth()
+  const {
+    semester,
+    nextSemester,
+    isLoading: isSemesterLoading,
+    error: semesterError,
+    retry: retrySemester,
+  } = useCurrentSemester()
   const [records, setRecords] = useState<EvaluationCycleResponse[]>([])
   const [selectedSemesterId, setSelectedSemesterId] = useState('')
   const selectedRecord = records.find((record) => record.semesterId === selectedSemesterId)
@@ -96,17 +103,15 @@ export default function CycleSetupPage() {
         setIsLoading(false)
         return
       }
+      if (!semester || !nextSemester) return
 
       try {
         setIsLoading(true)
         setPageError('')
-        const [current, savedCycles] = await Promise.all([
-          getCurrentSemester(token, controller.signal),
-          getEvaluationCycles(token, controller.signal),
-        ])
+        const savedCycles = await getEvaluationCycles(token, controller.signal)
         if (controller.signal.aborted) return
 
-        const availableSemesters = [current.semester, current.nextSemester]
+        const availableSemesters = [semester, nextSemester]
         const savedBySemester = new Map(savedCycles.map((cycle) => [cycle.semesterId, cycle]))
         const nextRecords = availableSemesters.map((semester) => savedBySemester.get(semester) ?? ({
           id: semester,
@@ -139,7 +144,7 @@ export default function CycleSetupPage() {
 
     void loadCycles()
     return () => controller.abort()
-  }, [loadAttempt, token])
+  }, [loadAttempt, nextSemester, semester, token])
 
   function showNotice(message: string) {
     setNotice(message)
@@ -219,17 +224,27 @@ export default function CycleSetupPage() {
     )
   }
 
-  if (isLoading) {
+  const displayedError = semesterError ?? pageError
+  const displayedLoading = isSemesterLoading || (!displayedError && isLoading)
+
+  if (displayedLoading) {
     return <section aria-live="polite" className="cycle-page"><p>Loading cycle setup…</p></section>
   }
 
-  if (pageError && records.length === 0) {
+  if (displayedError && records.length === 0) {
     return (
       <section className="cycle-page">
         <h1>Cycle setup</h1>
         <div className="cycle-locked-note" role="alert">
-          <p>{pageError}</p>
-          <button className="cycle-button cycle-button--secondary" onClick={() => setLoadAttempt((attempt) => attempt + 1)} type="button">
+          <p>{displayedError}</p>
+          <button
+            className="cycle-button cycle-button--secondary"
+            onClick={() => {
+              if (semesterError) retrySemester()
+              else setLoadAttempt((attempt) => attempt + 1)
+            }}
+            type="button"
+          >
             Retry
           </button>
         </div>
@@ -264,7 +279,7 @@ export default function CycleSetupPage() {
       </header>
 
       {notice && <div className="toast" role="status">{notice}</div>}
-      {pageError && <div className="cycle-locked-note" role="alert">{pageError}</div>}
+      {displayedError && <div className="cycle-locked-note" role="alert">{displayedError}</div>}
 
       <div className="cycle-layout">
         <section aria-labelledby="deadline-form-title" className="cycle-form-panel">

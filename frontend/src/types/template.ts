@@ -1,11 +1,6 @@
 export type TemplateStatus = 'current' | 'draft'
 export type QuestionType = 'Rating 1–5' | 'Yes/No' | 'Short Answer' | 'Long Answer'
 
-export interface RatingOption {
-  value: number
-  label: string
-}
-
 export interface TemplateCriterion {
   id: string
   name: string
@@ -21,7 +16,6 @@ export interface ObservationTemplate {
   version: number | null
   status: TemplateStatus
   criteria: TemplateCriterion[]
-  ratingScale: RatingOption[]
   effectiveSemester: string | null
   isEditable?: boolean
   isInheritedDraft?: boolean
