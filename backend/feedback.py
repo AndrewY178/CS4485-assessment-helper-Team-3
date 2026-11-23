@@ -5,12 +5,53 @@ from flask import Blueprint, g, jsonify, request
 from api_helpers import error, json_body
 from auth import _roles_for, ac_required, faculty_required, login_required
 from db import query
-from deadlines import cycle_deadline_times, deadline_block, deadline_problem
+from deadlines import check_deadline, cycle_deadline_times, deadline_problem
 
 feedback_bp = Blueprint("feedback", __name__)
 
 SEMESTER_ROLES = {"observee", "observer", "both"}
 PROCESS_RATINGS = {"yes", "mostly", "no"}
+
+
+def _has_submitted_observation_form(user_id, semester):
+    """True if this professor, as an observer, has signed (submitted) an observation form this semester."""
+    rows = query(
+        """
+        SELECT 1
+        FROM evaluations e
+        JOIN meetings m ON m.meeting_id = e.meeting_id
+        JOIN courses c ON c.course_id = m.course_id
+        WHERE m.observer_id = %s
+          AND c.semester = %s
+          AND e.observer_signed_at IS NOT NULL
+        LIMIT 1
+        """,
+        (user_id, semester),
+    )
+    return bool(rows)
+
+
+def survey_problem(semester):
+    """Why the current user can't edit the survey right now (a dict with "message"), or None if they can.
+
+    Open until the feedback deadline. Before the observation deadline it is open only to an
+    observer who has already submitted their observation form; after it, to everyone.
+    """
+    problem = deadline_problem("submit_feedback", semester)
+    if problem:
+        return problem
+    if deadline_problem("survey_open_to_all", semester) is None:
+        return None
+    if _has_submitted_observation_form(g.user_id, semester):
+        return None
+    early = check_deadline("survey_open_to_all", semester)
+    return {
+        **early,
+        "message": (
+            "The survey opens once you submit your observation form, or when the "
+            f"observation deadline passes. {early['message']}"
+        ),
+    }
 
 
 @feedback_bp.put("/api/feedback")
@@ -21,9 +62,17 @@ def save_feedback():
     if not isinstance(semester, str) or not semester.strip():
         return error("semester is required", 400)
     semester = semester.strip()
-    blocked = deadline_block("submit_feedback", semester)
-    if blocked:
-        return blocked
+    problem = survey_problem(semester)
+    if problem:
+        return (
+            jsonify(
+                error=problem["message"],
+                deadline=problem["deadline"],
+                rule=problem["rule"],
+                at=problem["at"],
+            ),
+            403,
+        )
 
     semester_role = body.get("semester_role", "observee")
     if not isinstance(semester_role, str) or semester_role not in SEMESTER_ROLES:
@@ -80,7 +129,7 @@ def get_feedback_status():
     semester = request.args.get("semester", "").strip()
     if not semester:
         return error("semester is required", 400)
-    problem = deadline_problem("submit_feedback", semester)
+    problem = survey_problem(semester)
     times = cycle_deadline_times(semester)
     return jsonify(
         semester=semester,

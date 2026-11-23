@@ -37,11 +37,13 @@ RULES = {
     # observers accepting or declining a request, and the observee confirming one observer
     "respond_to_request": [("observation_deadline", "before")],
     "confirm_observer": [("observation_deadline", "before")],
-    # saving and signing the observation form. Tied to the feedback deadline for now; if the team
-    # wants this to end with the observation deadline instead, change it here.
-    "complete_evaluation": [("feedback_deadline", "before")],
-    # the process feedback survey is open after the observation deadline and until the feedback deadline
-    "submit_feedback": [("observation_deadline", "after"), ("feedback_deadline", "before")],
+    # saving and signing the observation form is due with the observation deadline
+    "complete_evaluation": [("observation_deadline", "before")],
+    # the process feedback survey closes with the feedback deadline. It opens to everyone once the
+    # observation deadline passes; before that, an observer who already submitted their observation
+    # form can fill it out early (see feedback.survey_problem, which uses "survey_open_to_all").
+    "submit_feedback": [("feedback_deadline", "before")],
+    "survey_open_to_all": [("observation_deadline", "after")],
 }
 
 # Accounts that skip every deadline, so the dev account can test the whole flow at any time.
