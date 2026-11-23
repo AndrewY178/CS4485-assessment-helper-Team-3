@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { ApiError } from '../../api/auth'
-import { updateProfessorRank } from '../../api/professorRank'
 import {
   getSignUpRequests,
   type SignUpRequest,
@@ -16,9 +15,6 @@ export default function SignUpsPage() {
   const [signUpRequests, setSignUpRequests] = useState<SignUpRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [rankError, setRankError] = useState('')
-  const [lastChange, setLastChange] = useState('')
-  const [savingRankId, setSavingRankId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<'All statuses' | SignUpStatus>('All statuses')
   const [page, setPage] = useState(0)
@@ -61,44 +57,12 @@ export default function SignUpsPage() {
     }
   }, [token])
 
-  const rankOptions = useMemo(() => {
-    return [...new Set(signUpRequests.map((request) => request.level).filter(Boolean))].sort()
-  }, [signUpRequests])
-
-  async function changeRank(request: SignUpRequest, profRank: string) {
-    if (!profRank || profRank === request.level) return
-    if (!token) {
-      setRankError('Your session is unavailable. Please sign in again.')
-      return
-    }
-
-    setRankError('')
-    setSavingRankId(request.id)
-    try {
-      const updated = await updateProfessorRank(request.id, profRank, token)
-      setSignUpRequests((current) =>
-        current.map((item) =>
-          item.id === request.id ? { ...item, level: updated.prof_rank } : item,
-        ),
-      )
-      setLastChange(`${request.name} is now ${updated.prof_rank}.`)
-    } catch (saveError) {
-      setRankError(
-        saveError instanceof ApiError
-          ? saveError.message
-          : 'Unable to update this professor rank.',
-      )
-    } finally {
-      setSavingRankId(null)
-    }
-  }
-
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase()
     return signUpRequests.filter((request) => {
       const matchesSearch =
         !query ||
-        `${request.name} ${request.email} ${request.course}`
+        `${request.name} ${request.course}`
           .toLowerCase()
           .includes(query)
       return matchesSearch && (status === 'All statuses' || request.status === status)
@@ -137,10 +101,10 @@ export default function SignUpsPage() {
         <div className="screen-controls">
           <label className="search-field">
             <Search aria-hidden="true" className="search-field__icon" />
-            <span className="visually-hidden">Search by name, course, or email</span>
+            <span className="visually-hidden">Search by name or course</span>
             <input
               onChange={(event) => updateSearch(event.target.value)}
-              placeholder="Search by name, course or email"
+              placeholder="Search by name or course"
               type="search"
               value={search}
             />
@@ -161,8 +125,6 @@ export default function SignUpsPage() {
           </select>
         </div>
       </header>
-      {lastChange && <p role="status">{lastChange}</p>}
-      {rankError && <p className="form-error" role="alert">{rankError}</p>}
 
       <div className="screen-table-card">
         <div className="screen-table-scroll">
@@ -170,8 +132,6 @@ export default function SignUpsPage() {
             <thead>
               <tr>
                 <th scope="col">Observee</th>
-                <th scope="col">Email</th>
-                <th scope="col">Level</th>
                 <th scope="col">Course</th>
                 <th scope="col">Time</th>
                 <th scope="col">Observee status</th>
@@ -180,7 +140,7 @@ export default function SignUpsPage() {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td className="screen-table__empty" colSpan={6}>
+                    <td className="screen-table__empty" colSpan={4}>
                       Loading sign-up requests...
                     </td>
                   </tr>
@@ -188,7 +148,7 @@ export default function SignUpsPage() {
               
                 {!isLoading && error && (
                   <tr>
-                    <td className="screen-table__empty" colSpan={6}>
+                    <td className="screen-table__empty" colSpan={4}>
                       {error}
                     </td>
                   </tr>
@@ -199,26 +159,6 @@ export default function SignUpsPage() {
                   visibleRequests.map((request) => (
                     <tr key={request.id}>
                       <td>{request.name}</td>
-                      <td>{request.email}</td>
-                      <td>
-                        <label className="visually-hidden" htmlFor={`rank-${request.id}`}>
-                          Rank for {request.name}
-                        </label>
-                        <select
-                          className="rank-select"
-                          disabled={savingRankId === request.id || rankOptions.length === 0}
-                          id={`rank-${request.id}`}
-                          onChange={(event) => void changeRank(request, event.target.value)}
-                          value={request.level}
-                        >
-                          {!request.level && <option value="">—</option>}
-                          {rankOptions.map((rank) => (
-                            <option key={rank} value={rank}>
-                              {rank}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
                       <td>{request.course}</td>
                       <td>{request.time}</td>
                       <td
@@ -233,7 +173,7 @@ export default function SignUpsPage() {
               
                 {!isLoading && !error && visibleRequests.length === 0 && (
                   <tr>
-                    <td className="screen-table__empty" colSpan={6}>
+                    <td className="screen-table__empty" colSpan={4}>
                       No sign-up requests match your search.
                     </td>
                   </tr>

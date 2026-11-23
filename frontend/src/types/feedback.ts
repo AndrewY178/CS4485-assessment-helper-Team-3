@@ -7,6 +7,15 @@ export interface FeedbackSurveyContext {
   feedbackDeadline: string | null
 }
 
+// GET /api/feedback/status
+export interface FeedbackStatusResponse {
+  semester: string
+  open: boolean
+  message: string | null
+  observationDeadline: string | null
+  feedbackDeadline: string | null
+}
+
 export interface FeedbackResponse {
   semester: string
   observee_id: number

@@ -11,6 +11,7 @@ from flask import Blueprint, g, jsonify, request
 
 from api_helpers import error, json_body, transaction
 from auth import faculty_required
+from deadlines import cycle_days, deadline_block
 
 signup_dates_bp = Blueprint("signup_dates", __name__)
 
@@ -31,6 +32,24 @@ def _parse_dates(raw_dates):
     if any(d < date.today() for d in parsed):
         return None
     return sorted(parsed)
+
+
+def _day_text(day):
+    return f"{day.strftime('%b')} {day.day}, {day.year}"
+
+
+def _outside_cycle_window(dates, signup_semester):
+    """An error message if an offered date is not after the sign-up deadline or is past the observation
+    deadline, else None. Observations happen after sign-up closes, so an earlier date could pass before
+    the observer lists are even generated. A semester without a cycle row is not restricted."""
+    days = cycle_days(signup_semester)
+    if days is None:
+        return None
+    if days["signup"] and any(d <= days["signup"] for d in dates):
+        return f"Offered dates must be after the sign-up deadline ({_day_text(days['signup'])})."
+    if days["observation"] and any(d > days["observation"] for d in dates):
+        return f"Offered dates must be on or before the observation deadline ({_day_text(days['observation'])})."
+    return None
 
 
 def _offered_dates(cursor, observee_id, signup_semester):
@@ -90,9 +109,15 @@ def save_signup_dates():
     signup_semester = str(body.get("signup_semester") or "").strip()
     if not signup_semester:
         return error("signup_semester is required", 400)
+    blocked = deadline_block("save_signup_dates", signup_semester)
+    if blocked:
+        return blocked
     dates = _parse_dates(body.get("dates"))
     if dates is None:
         return error("dates must be today or a later day", 400)
+    window_error = _outside_cycle_window(dates, signup_semester)
+    if window_error:
+        return error(window_error, 400)
     raw_course_id = body.get("course_id")
     try:
         course_id = int(raw_course_id)

@@ -178,6 +178,7 @@ export interface UserResponse {
   id: string
   name: string
   username: string
+  email?: string | null // only returned to AC members
   prof_rank: string | null // this is hireLevel
   department: string
   last_sem_observed: string | null
@@ -209,19 +210,13 @@ export type ObserveeStatus =
   | 'invitations_sent'
   | 'manual'
 
-// GET /api/cycles/deadline
+// GET /api/cycles/deadline (read from evaluation_cycles, dates in Central time)
 export interface CycleDeadlineResponse {
   signup_deadline: string
   observation_deadline: string | null
   feedback_deadline?: string | null
   days_remaining: number
   is_past: boolean
-}
-
-export interface SaveCycleDeadlineRequest {
-  semester: string
-  signup_deadline: string
-  observation_deadline: string
 }
 
 export interface FacultyCourse {

@@ -9,6 +9,7 @@ const acNavItems = [
   { label: 'Observation Template', to: '/template' },
   { label: 'Cycle Setup', to: '/cycle-setup' },
   { label: 'Sign-up Requests', to: '/sign-ups' },
+  { label: 'Create Account', to: '/create-account' },
   { label: 'Observer Selection', to: '/observer-selection' },
   { label: 'Observation Tracking', to: '/tracking' },
   { label: 'KPI Reports', to: '/cycle-kpi-report' },

@@ -7,6 +7,7 @@ from flask import Blueprint, g, jsonify, request
 
 from api_helpers import error, transaction
 from auth import faculty_required
+from deadlines import deadline_block
 
 evaluations_bp = Blueprint("evaluations", __name__)
 
@@ -454,6 +455,9 @@ def save_observer_answers(evaluation_id):
             return error("Evaluation was not found", 404)
         if not _observation_is_confirmed(cursor, evaluation["meeting_id"], g.user_id):
             return error("Evaluation was not found", 404)
+        blocked = deadline_block("complete_evaluation", evaluation["semester"])
+        if blocked:
+            return blocked
         if evaluation["observer_signed_at"]:
             return error("Observer-signed answers cannot be edited", 409)
         cursor.execute("SELECT signup_deadline FROM evaluation_cycles WHERE semester = %s", (evaluation["semester"],))
@@ -488,6 +492,9 @@ def sign_as_observer(evaluation_id):
             return error("Evaluation was not found", 404)
         if not _observation_is_confirmed(cursor, evaluation["meeting_id"], g.user_id):
             return error("Evaluation was not found", 404)
+        blocked = deadline_block("complete_evaluation", evaluation["semester"])
+        if blocked:
+            return blocked
         if evaluation["observer_signed_at"]:
             return error("This evaluation has already been signed by the observer", 409)
         cursor.execute("SELECT signup_deadline FROM evaluation_cycles WHERE semester = %s", (evaluation["semester"],))
@@ -536,6 +543,9 @@ def save_observee_response(evaluation_id):
         evaluation = _evaluation(cursor, evaluation_id)
         if not evaluation or evaluation["observee_id"] != g.user_id:
             return error("Evaluation was not found", 404)
+        blocked = deadline_block("complete_evaluation", evaluation["semester"])
+        if blocked:
+            return blocked
         if not evaluation["observer_signed_at"]:
             return error("The observer must sign before you can respond", 409)
         if evaluation["observee_signed_at"]:
@@ -559,6 +569,9 @@ def sign_as_observee(evaluation_id):
         evaluation = _evaluation(cursor, evaluation_id)
         if not evaluation or evaluation["observee_id"] != g.user_id:
             return error("Evaluation was not found", 404)
+        blocked = deadline_block("complete_evaluation", evaluation["semester"])
+        if blocked:
+            return blocked
         if not evaluation["observer_signed_at"]:
             return error("The observer must sign before you can sign", 409)
         if evaluation["observee_signed_at"]:

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import AppLayout from './components/AppLayout'
 import { useAuth } from './context/AuthContext'
 import { useNavigation } from './context/NavigationContext'
+import CreateAccountPage from './pages/ac/CreateAccountPage'
 import CycleKpiPage from './pages/ac/CycleKpiPage'
 import CycleSetupPage from './pages/ac/CycleSetupPage'
 import DashboardPage from './pages/ac/DashboardPage'
@@ -28,6 +29,7 @@ const acPaths = [
   '/template',
   '/cycle-setup',
   '/sign-ups',
+  '/create-account',
   '/observer-selection',
   '/tracking',
   '/cycle-kpi-report',
@@ -99,6 +101,9 @@ export default function App() {
       break
     case '/sign-ups':
       page = <SignUpsPage />
+      break
+    case '/create-account':
+      page = <CreateAccountPage />
       break
     case '/observer-selection':
       page = <ObserverSelectionPage />
