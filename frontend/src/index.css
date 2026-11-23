@@ -2645,3 +2645,30 @@ tbody th {
     justify-content: flex-start;
   }
 }
+
+.create-account-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.create-account-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.create-account-form input,
+.create-account-form select {
+  min-width: 10rem;
+  padding: 6px 8px;
+  border: 1px solid var(--line, #d7d2c8);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}

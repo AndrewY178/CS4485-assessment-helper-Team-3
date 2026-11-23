@@ -336,13 +336,26 @@ def change_password():
     return jsonify(message="Password updated")
 
 
+def send_account_setup_email(email, token):
+    """PLACEHOLDER (Mekha): email a new professor their set-password link.
+
+    Called by create_account with the one-time token. To finish this, call
+    _send_password_link(email, token, "set_password", SET_PASSWORD_HOURS) (or a
+    dedicated welcome template). Until then the account exists but the professor
+    gets no email; they can use "Forgot password" on the login page instead.
+    """
+    return None
+
+
 @auth_bp.post("/api/users")
 @ac_required
 def create_account():
-    """AC creates a professor's account (no password yet) and a set-password link is sent."""
+    """AC creates a professor's account (no password yet); the setup email is a placeholder."""
     data = json_body()
     email = (data.get("email") or "").strip()
     name = (data.get("name") or "").strip()
+    department = (data.get("department") or "").strip() or None
+    rank = (data.get("prof_rank") or "").strip() or None
     roles = data.get("roles") or []
     username = (data.get("username") or email.split("@")[0]).strip()
 
@@ -355,7 +368,11 @@ def create_account():
         with transaction() as cur:
             cur.execute("INSERT INTO users (username, email) VALUES (%s, %s)", (username, email))
             user_id = cur.lastrowid
-            cur.execute("INSERT INTO professors (professor_id, professor_name) VALUES (%s, %s)", (user_id, name))
+            cur.execute(
+                "INSERT INTO professors (professor_id, professor_name, professor_rank, professor_department) "
+                "VALUES (%s, %s, %s, %s)",
+                (user_id, name, rank, department),
+            )
             for role in dict.fromkeys(roles):
                 table, column = ROLE_TABLES[role]
                 cur.execute(f"INSERT INTO {table} ({column}) VALUES (%s)", (user_id,))
@@ -363,8 +380,5 @@ def create_account():
         return error("An account with that email or username already exists", 409)
 
     token = _issue_password_token(user_id, "set_password", SET_PASSWORD_HOURS)
-    try:
-        _send_password_link(email, token, "set_password", SET_PASSWORD_HOURS)
-    except EmailServiceError:
-        return error("The account was created, but its setup email could not be sent.", 502)
+    send_account_setup_email(email, token)
     return jsonify(id=str(user_id), email=email, name=name, roles=_roles_for(user_id)), 201

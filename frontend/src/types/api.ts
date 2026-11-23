@@ -178,6 +178,7 @@ export interface UserResponse {
   id: string
   name: string
   username: string
+  email?: string | null // only returned to AC members
   prof_rank: string | null // this is hireLevel
   department: string
   last_sem_observed: string | null

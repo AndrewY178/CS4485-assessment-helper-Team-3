@@ -8,7 +8,7 @@ from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 from mysql.connector import Error, IntegrityError
 from dotenv import load_dotenv
-from auth import ac_required, auth_bp, faculty_required
+from auth import _current_session, _roles_for, ac_required, auth_bp, faculty_required
 from reminders import reminders_bp
 from signup_dates import signup_dates_bp
 from observer_approval import observer_approval_bp
@@ -464,6 +464,16 @@ def generate_observer_list(observee_id, signup_semester):
 @app.route("/api/users")
 def get_users():
     rows = query(PROFESSOR_SELECT + " ORDER BY p.professor_name")
+    # This endpoint is public (the faculty Status page uses it without a token), so
+    # emails are only included for a logged-in AC member.
+    session = _current_session()
+    if session and "AC Member" in _roles_for(session["user_id"]):
+        emails = {
+            row["id"]: row["email"]
+            for row in query("SELECT id, email FROM users")
+        }
+        for row in rows:
+            row["email"] = emails.get(row["id"])
     return jsonify(rows)
 
 
